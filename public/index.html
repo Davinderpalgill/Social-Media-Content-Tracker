@@ -39,7 +39,7 @@ body{font-family:'Inter',sans-serif;color:var(--text);}
 /* Header */
 header{position:fixed;top:0;left:0;right:0;height:var(--header-h);background:var(--green-800);display:flex;align-items:center;padding:0 20px;gap:16px;z-index:100;border-bottom:3px solid var(--brand-orange);}
 .logo{display:flex;align-items:center;width:var(--sidebar-w);flex-shrink:0;}
-.logo-img{height:80px;width:auto;object-fit:contain;background:#fff;border-radius:8px;padding:4px 12px;}
+.logo-img{height:48px;width:auto;object-fit:contain;background:#fff;border-radius:8px;padding:5px 14px;}
 .logo-fallback{font-size:20px;font-weight:800;color:#fff;letter-spacing:-.5px;align-items:center;}
 .logo-fallback span{color:var(--brand-orange);}
 .header-search{flex:1;max-width:380px;position:relative;}
@@ -571,7 +571,9 @@ function renderDashboard() {
   const paid = DB.contents.filter(c => c.paymentStatus === 'paid').length;
   const unpaid = DB.contents.filter(c => c.paymentStatus === 'unpaid').length;
   const pending = DB.contents.filter(c => c.paymentStatus === 'pending').length;
-  const totalAmt = DB.contents.filter(c => c.paymentStatus === 'paid').reduce((a,c) => a + (Number(c.amount)||0), 0);
+  const paidAmt    = DB.contents.filter(c => c.paymentStatus === 'paid').reduce((a,c)    => a + (Number(c.amount)||0), 0);
+  const pendingAmt = DB.contents.filter(c => c.paymentStatus === 'pending').reduce((a,c) => a + (Number(c.amount)||0), 0);
+  const unpaidAmt  = DB.contents.filter(c => c.paymentStatus === 'unpaid').reduce((a,c)  => a + (Number(c.amount)||0), 0);
   const recent = [...DB.contents].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0,8);
 
   document.getElementById('mainArea').innerHTML = `
@@ -581,9 +583,9 @@ function renderDashboard() {
   </div>
   <div class="stats-grid">
     <div class="stat-card"><div class="s-label">Total Content</div><div class="s-val">${total}</div><div class="s-sub">Across ${DB.categories.length} categories</div></div>
-    <div class="stat-card green"><div class="s-label">Paid</div><div class="s-val">${paid}</div><div class="s-sub">₹${totalAmt.toLocaleString('en-IN')} disbursed</div></div>
-    <div class="stat-card amber"><div class="s-label">Pending</div><div class="s-val">${pending}</div><div class="s-sub">Awaiting approval</div></div>
-    <div class="stat-card red"><div class="s-label">Unpaid</div><div class="s-val">${unpaid}</div><div class="s-sub">Needs payment</div></div>
+    <div class="stat-card green"><div class="s-label">Paid</div><div class="s-val">${paid}</div><div class="s-sub">₹${paidAmt.toLocaleString('en-IN')} disbursed</div></div>
+    <div class="stat-card amber"><div class="s-label">Pending</div><div class="s-val">${pending}</div><div class="s-sub">₹${pendingAmt.toLocaleString('en-IN')} to approve</div></div>
+    <div class="stat-card red"><div class="s-label">Unpaid</div><div class="s-val">${unpaid}</div><div class="s-sub">₹${unpaidAmt.toLocaleString('en-IN')} outstanding</div></div>
   </div>
   <div class="section-title" style="margin-bottom:14px"><i class="fa-solid fa-grid-2"></i> Categories Overview</div>
   <div class="content-grid" style="margin-bottom:28px">
