@@ -211,8 +211,61 @@ textarea{resize:vertical;min-height:80px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
 
-@media(max-width:900px){.stats-grid{grid-template-columns:repeat(2,1fr);}.form-row{grid-template-columns:1fr;}}
-@media(max-width:640px){aside{display:none;}.stats-grid{grid-template-columns:1fr 1fr;}}
+/* Hamburger button — hidden on desktop */
+.hamburger{display:none;background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;padding:8px 10px;border-radius:6px;flex-shrink:0;line-height:1;}
+.hamburger:hover{background:rgba(255,255,255,.15);}
+
+/* Mobile sidebar overlay */
+.sidebar-overlay{display:none;position:fixed;inset:0;top:var(--header-h);background:rgba(0,0,0,.45);z-index:199;}
+.sidebar-overlay.open{display:block;}
+
+/* Tablet */
+@media(max-width:900px){
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .form-row{grid-template-columns:1fr;}
+}
+
+/* Mobile */
+@media(max-width:768px){
+  .hamburger{display:flex;align-items:center;justify-content:center;}
+  .logo{width:auto;flex:1;}
+  .logo-img{height:36px;max-width:130px;}
+  .header-search{display:none;}
+  #syncIndicator{display:none;}
+  .header-actions .btn-outline{display:none;}
+
+  /* Sidebar becomes slide-out drawer */
+  aside{
+    position:fixed;top:var(--header-h);left:0;bottom:0;
+    width:280px;height:auto;
+    transform:translateX(-100%);
+    transition:transform .25s ease;
+    z-index:200;
+    box-shadow:4px 0 24px rgba(0,0,0,.2);
+  }
+  aside.mobile-open{transform:translateX(0);}
+
+  main{padding:16px;}
+  .stats-grid{grid-template-columns:1fr 1fr;gap:10px;}
+  .stat-card{padding:14px 12px;}
+  .stat-card .s-val{font-size:22px;}
+  .content-grid{grid-template-columns:1fr;}
+  .page-title{font-size:18px;}
+  .cat-view-header{flex-wrap:wrap;gap:10px;padding:14px;}
+  .cat-stats{gap:14px;}
+  .recent-table{overflow-x:auto;}
+  .recent-table table{min-width:580px;}
+  .modal-overlay{padding:8px;}
+  .modal{max-height:96vh;}
+}
+
+/* Small phones */
+@media(max-width:420px){
+  .btn-label{display:none;}
+  .stats-grid{gap:8px;}
+  .stat-card .s-val{font-size:20px;}
+  .stat-card .s-sub{font-size:11px;}
+}
 </style>
 </head>
 <body>
@@ -225,6 +278,9 @@ textarea{resize:vertical;min-height:80px;}
 
 <!-- Header -->
 <header>
+  <button class="hamburger" id="hamburgerBtn" onclick="toggleSidebar()" aria-label="Menu">
+    <i class="fa-solid fa-bars"></i>
+  </button>
   <div class="logo">
     <img src="/logo.png" alt="Truyerba" class="logo-img"
          onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
@@ -236,13 +292,14 @@ textarea{resize:vertical;min-height:80px;}
   </div>
   <div class="header-actions">
     <span id="syncIndicator" title="Last synced"><span class="sync-dot" id="syncDot"></span><span id="syncText" style="font-size:11px;color:rgba(255,255,255,.6)">Live</span></span>
-    <button class="btn btn-outline btn-sm" onclick="refreshData()"><i class="fa-solid fa-rotate"></i> Refresh</button>
-    <button class="btn btn-outline btn-sm" onclick="exportCSV()"><i class="fa-solid fa-download"></i> Export</button>
-    <button class="btn btn-primary btn-sm" onclick="openAddContent()"><i class="fa-solid fa-plus"></i> Add Content</button>
+    <button class="btn btn-outline btn-sm" onclick="refreshData()"><i class="fa-solid fa-rotate"></i> <span class="btn-label">Refresh</span></button>
+    <button class="btn btn-outline btn-sm" onclick="exportCSV()"><i class="fa-solid fa-download"></i> <span class="btn-label">Export</span></button>
+    <button class="btn btn-primary btn-sm" onclick="openAddContent()"><i class="fa-solid fa-plus"></i> <span class="btn-label">Add Content</span></button>
   </div>
 </header>
 
 <div class="app-body">
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
   <aside id="sidebar">
     <div class="sidebar-section">
       <div class="nav-label">Menu</div>
@@ -508,9 +565,19 @@ function renderSidebar() {
   }).join('');
   document.getElementById('totalCount').textContent = DB.contents.length;
 }
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('mobile-open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
 function setActiveNav(el) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   if (el) el.classList.add('active');
+  closeSidebar();
 }
 
 // ═══════════════════════════════════════════════════
