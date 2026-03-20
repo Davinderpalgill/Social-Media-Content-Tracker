@@ -211,6 +211,40 @@ textarea{resize:vertical;min-height:80px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
 
+/* ── Investor Pipeline ───────────────────────────────── */
+.inv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+.inv-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;box-shadow:var(--shadow);transition:.15s;}
+.inv-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px);}
+.inv-card-top{padding:16px 16px 12px;border-bottom:1px solid var(--border);}
+.inv-name{font-size:15px;font-weight:700;margin-bottom:4px;}
+.inv-meta{font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.inv-meta i{width:12px;}
+.inv-card-mid{padding:12px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border);}
+.inv-card-bot{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.inv-stats{display:flex;gap:12px;font-size:12px;color:var(--text-2);}
+.inv-stat{display:flex;align-items:center;gap:4px;}
+.inv-stat i{font-size:11px;color:var(--text-3);}
+.inv-overdue{color:var(--red)!important;font-weight:600;}
+/* Status badges */
+.s-cold{background:#f1f5f9;color:#64748b;}
+.s-contacted{background:#fef3c7;color:#92400e;}
+.s-replied{background:#dbeafe;color:#1e40af;}
+.s-interested{background:var(--green-100);color:var(--green-700);}
+.s-meeting{background:#ede9fe;color:#5b21b6;}
+.s-committed{background:#dcfce7;color:#14532d;}
+.s-rejected{background:var(--red-light);color:var(--red);}
+/* Priority dots */
+.pri-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.pri-high{background:#ef4444;}
+.pri-medium{background:#f59e0b;}
+.pri-low{background:#94a3b8;}
+/* Platform pill */
+.platform-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;background:var(--bg);border:1px solid var(--border);}
+/* Investor stats bar */
+.inv-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+/* Followup modal */
+.followup-modal .modal{max-width:400px;}
+
 /* Hamburger button — hidden on desktop */
 .hamburger{display:none;background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;padding:8px 10px;border-radius:6px;flex-shrink:0;line-height:1;}
 .hamburger:hover{background:rgba(255,255,255,.15);}
@@ -247,9 +281,11 @@ textarea{resize:vertical;min-height:80px;}
 
   main{padding:16px;}
   .stats-grid{grid-template-columns:1fr 1fr;gap:10px;}
+  .inv-stats-grid{grid-template-columns:1fr 1fr;gap:10px;}
   .stat-card{padding:14px 12px;}
   .stat-card .s-val{font-size:22px;}
   .content-grid{grid-template-columns:1fr;}
+  .inv-grid{grid-template-columns:1fr;}
   .page-title{font-size:18px;}
   .cat-view-header{flex-wrap:wrap;gap:10px;padding:14px;}
   .cat-stats{gap:14px;}
@@ -315,6 +351,11 @@ textarea{resize:vertical;min-height:80px;}
       <div class="nav-item" onclick="showProviders(this)">
         <span class="icon"><i class="fa-solid fa-users"></i></span>
         <span class="label">Providers</span>
+      </div>
+      <div class="nav-item" onclick="showInvestors(this)">
+        <span class="icon"><i class="fa-solid fa-handshake"></i></span>
+        <span class="label">Investors</span>
+        <span class="count" id="investorCount">0</span>
       </div>
     </div>
     <div class="nav-divider"></div>
@@ -464,13 +505,148 @@ textarea{resize:vertical;min-height:80px;}
   </div>
 </div>
 
+<!-- Modal: Add/Edit Investor -->
+<div class="modal-overlay" id="investorModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="investorModalTitle">Add Investor</span>
+      <button class="modal-close" onclick="closeModal('investorModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="iEditId"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Investor Name *</label>
+          <input type="text" id="iName" placeholder="e.g. Rahul Mehta"/>
+        </div>
+        <div class="form-group">
+          <label>Platform *</label>
+          <select id="iPlatform">
+            <option value="LinkedIn">LinkedIn</option>
+            <option value="Instagram">Instagram</option>
+            <option value="Twitter/X">Twitter / X</option>
+            <option value="Facebook">Facebook</option>
+            <option value="WhatsApp">WhatsApp</option>
+            <option value="Email">Email</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Investor Type</label>
+          <select id="iType">
+            <option value="Individual">Individual</option>
+            <option value="Angel">Angel Investor</option>
+            <option value="VC">Venture Capital</option>
+            <option value="Family Office">Family Office</option>
+            <option value="Corporate">Corporate</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Priority</label>
+          <select id="iPriority">
+            <option value="high">🔴 High</option>
+            <option value="medium" selected>🟡 Medium</option>
+            <option value="low">⚪ Low</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Pipeline Status</label>
+          <select id="iStatus">
+            <option value="cold">❄️ Cold — Not Contacted</option>
+            <option value="contacted">📤 Contacted — Awaiting Reply</option>
+            <option value="replied">💬 Replied</option>
+            <option value="interested">⭐ Interested</option>
+            <option value="meeting">📅 Meeting Scheduled</option>
+            <option value="committed">🤝 Committed</option>
+            <option value="rejected">❌ Rejected</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Investment Range</label>
+          <input type="text" id="iRange" placeholder="e.g. ₹5L – ₹50L"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Profile / Contact URL</label>
+        <input type="url" id="iProfileUrl" placeholder="https://linkedin.com/in/…"/>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Location</label>
+          <input type="text" id="iLocation" placeholder="e.g. Mumbai, India"/>
+        </div>
+        <div class="form-group">
+          <label>First Contact Date</label>
+          <input type="date" id="iFirstContact"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Last Contact Date</label>
+          <input type="date" id="iLastContact"/>
+        </div>
+        <div class="form-group">
+          <label>Next Follow-up Date</label>
+          <input type="date" id="iNextFollowup"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Message Sent</label>
+        <textarea id="iMessageSent" placeholder="Paste the pitch/intro message you sent…" style="min-height:90px"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Their Reply <span style="font-weight:400;text-transform:none">(if any)</span></label>
+        <textarea id="iReplyContent" placeholder="Paste their reply here…" style="min-height:70px"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea id="iNotes" placeholder="Any additional context, observations…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('investorModal')">Cancel</button>
+      <button class="btn btn-primary" id="saveInvestorBtn" onclick="saveInvestor()"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Log Follow-up -->
+<div class="modal-overlay followup-modal" id="followupModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title">Log Follow-up</span>
+      <button class="modal-close" onclick="closeModal('followupModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-2);margin-bottom:16px">This will increment the follow-up counter and set <strong>Last Contact</strong> to today.</p>
+      <input type="hidden" id="fuInvestorId"/>
+      <div class="form-group">
+        <label>Next Follow-up Date <span style="font-weight:400;text-transform:none">(optional)</span></label>
+        <input type="date" id="fuNextDate"/>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Quick Note <span style="font-weight:400;text-transform:none">(appended to investor notes)</span></label>
+        <textarea id="fuNote" placeholder="e.g. Sent follow-up message about Q2 deck…" style="min-height:70px"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('followupModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmFollowup()"><i class="fa-solid fa-check"></i> Log Follow-up</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toastContainer"></div>
 
 <script>
 // ═══════════════════════════════════════════════════
 //  IN-MEMORY STORE (populated from API)
 // ═══════════════════════════════════════════════════
-let DB = { categories: [], contents: [] };
+let DB = { categories: [], contents: [], investors: [] };
 let currentView = 'dashboard', currentCatId = null;
 let searchQuery = '', filterProvider = '', filterStatus = '';
 
@@ -494,12 +670,14 @@ async function api(method, path, body) {
 async function refreshData() {
   setSyncing(true);
   try {
-    const [cats, contents] = await Promise.all([
+    const [cats, contents, investors] = await Promise.all([
       fetch('/api/categories').then(r => r.json()),
       fetch('/api/contents').then(r => r.json()),
+      fetch('/api/investors').then(r => r.json()),
     ]);
     DB.categories = cats;
     DB.contents   = contents;
+    DB.investors  = investors;
     renderSidebar();
     rerender();
     document.getElementById('syncText').textContent = 'Synced ' + new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'});
@@ -564,6 +742,7 @@ function renderSidebar() {
     </div>`;
   }).join('');
   document.getElementById('totalCount').textContent = DB.contents.length;
+  document.getElementById('investorCount').textContent = DB.investors.length;
 }
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('mobile-open');
@@ -819,6 +998,7 @@ function rerender() {
   else if (currentView === 'all')       renderAllContent();
   else if (currentView === 'dashboard') renderDashboard();
   else if (currentView === 'providers') showProviders(null);
+  else if (currentView === 'investors') renderInvestors();
 }
 
 // ═══════════════════════════════════════════════════
@@ -959,6 +1139,257 @@ async function deleteContent(id) {
     await api('DELETE', `/api/contents/${id}`);
     await refreshData();
     toast('Content deleted.');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════════════
+//  INVESTORS
+// ═══════════════════════════════════════════════════
+const STATUS_META = {
+  cold:      { label:'Cold',              cls:'s-cold',      icon:'❄️' },
+  contacted: { label:'Contacted',         cls:'s-contacted', icon:'📤' },
+  replied:   { label:'Replied',           cls:'s-replied',   icon:'💬' },
+  interested:{ label:'Interested',        cls:'s-interested',icon:'⭐' },
+  meeting:   { label:'Meeting Scheduled', cls:'s-meeting',   icon:'📅' },
+  committed: { label:'Committed',         cls:'s-committed', icon:'🤝' },
+  rejected:  { label:'Rejected',          cls:'s-rejected',  icon:'❌' },
+};
+const PLATFORM_ICON = {
+  'LinkedIn':'fa-brands fa-linkedin','Instagram':'fa-brands fa-instagram',
+  'Twitter/X':'fa-brands fa-x-twitter','Facebook':'fa-brands fa-facebook',
+  'WhatsApp':'fa-brands fa-whatsapp','Email':'fa-solid fa-envelope',
+  'Other':'fa-solid fa-user',
+};
+
+function showInvestors(el) {
+  currentView = 'investors'; currentCatId = null;
+  setActiveNav(el);
+  renderInvestors();
+}
+
+function renderInvestors() {
+  const inv = DB.investors;
+  const replied    = inv.filter(i => ['replied','interested','meeting','committed'].includes(i.status)).length;
+  const interested = inv.filter(i => ['interested','meeting','committed'].includes(i.status)).length;
+  const meetings   = inv.filter(i => i.status === 'meeting').length;
+  const today      = new Date().toISOString().slice(0,10);
+  const overdue    = inv.filter(i => i.nextFollowup && i.nextFollowup.slice(0,10) < today && !['committed','rejected'].includes(i.status)).length;
+
+  let filterStatus = '', filterPlatform = '', filterPriority = '';
+  const platforms  = [...new Set(inv.map(i => i.platform))].filter(Boolean);
+
+  function filtered() {
+    let list = [...inv];
+    if (filterStatus)   list = list.filter(i => i.status === filterStatus);
+    if (filterPlatform) list = list.filter(i => i.platform === filterPlatform);
+    if (filterPriority) list = list.filter(i => i.priority === filterPriority);
+    return list;
+  }
+
+  function renderCards() {
+    const list = filtered();
+    const grid = document.getElementById('invGrid');
+    if (!grid) return;
+    grid.innerHTML = list.length === 0
+      ? `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">🤝</div><h3>No investors found</h3><p>Add your first investor to start tracking your outreach pipeline.</p></div>`
+      : list.map(investorCardHtml).join('');
+  }
+
+  document.getElementById('mainArea').innerHTML = `
+  <div class="page-header">
+    <div>
+      <div class="page-title">Investor Pipeline</div>
+      <div class="page-sub">${inv.length} investors · ${overdue > 0 ? `<span style="color:var(--red);font-weight:600">${overdue} follow-up${overdue>1?'s':''} overdue</span>` : 'All follow-ups on track'}</div>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="openAddInvestor()"><i class="fa-solid fa-plus"></i> <span class="btn-label">Add Investor</span></button>
+  </div>
+  <div class="inv-stats-grid">
+    <div class="stat-card"><div class="s-label">Total</div><div class="s-val">${inv.length}</div><div class="s-sub">In pipeline</div></div>
+    <div class="stat-card blue"><div class="s-label">Replied</div><div class="s-val" style="color:var(--blue)">${replied}</div><div class="s-sub">Engaged</div></div>
+    <div class="stat-card green"><div class="s-label">Interested</div><div class="s-val" style="color:var(--green-700)">${interested}</div><div class="s-sub">Warm leads</div></div>
+    <div class="stat-card amber"><div class="s-label">Meetings</div><div class="s-val" style="color:#7c3aed">${meetings}</div><div class="s-sub">Scheduled</div></div>
+  </div>
+  <div class="filters-bar">
+    <select class="filter-select" onchange="document.invFS=this.value;renderInvestorCards()">
+      <option value="">All Statuses</option>
+      ${Object.entries(STATUS_META).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('')}
+    </select>
+    <select class="filter-select" onchange="document.invFP=this.value;renderInvestorCards()">
+      <option value="">All Platforms</option>
+      ${platforms.map(p=>`<option value="${p}">${p}</option>`).join('')}
+    </select>
+    <span class="filter-tag active" onclick="document.invFPR='';renderInvestorCards();this.closest('.filters-bar').querySelectorAll('[data-pri]').forEach(x=>x.classList.remove('active'));this.classList.add('active')">All</span>
+    <span class="filter-tag" data-pri="high" onclick="document.invFPR='high';renderInvestorCards();this.closest('.filters-bar').querySelectorAll('.filter-tag').forEach(x=>x.classList.remove('active'));this.classList.add('active')">🔴 High</span>
+    <span class="filter-tag" data-pri="medium" onclick="document.invFPR='medium';renderInvestorCards();this.closest('.filters-bar').querySelectorAll('.filter-tag').forEach(x=>x.classList.remove('active'));this.classList.add('active')">🟡 Medium</span>
+    <span class="filter-tag" data-pri="low" onclick="document.invFPR='low';renderInvestorCards();this.closest('.filters-bar').querySelectorAll('.filter-tag').forEach(x=>x.classList.remove('active'));this.classList.add('active')">⚪ Low</span>
+  </div>
+  <div class="inv-grid" id="invGrid"></div>`;
+
+  document.invFS = ''; document.invFP = ''; document.invFPR = '';
+  window.renderInvestorCards = function() {
+    const list = DB.investors.filter(i =>
+      (!document.invFS   || i.status   === document.invFS) &&
+      (!document.invFP   || i.platform === document.invFP) &&
+      (!document.invFPR  || i.priority === document.invFPR)
+    );
+    const grid = document.getElementById('invGrid');
+    if (!grid) return;
+    grid.innerHTML = list.length === 0
+      ? `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">🔍</div><h3>No investors match</h3><p>Try adjusting filters.</p></div>`
+      : list.map(investorCardHtml).join('');
+  };
+  window.renderInvestorCards();
+}
+
+function investorCardHtml(inv) {
+  const sm  = STATUS_META[inv.status] || STATUS_META.cold;
+  const pi  = PLATFORM_ICON[inv.platform] || 'fa-solid fa-user';
+  const today = new Date().toISOString().slice(0,10);
+  const nf  = inv.nextFollowup ? inv.nextFollowup.slice(0,10) : null;
+  const overdue = nf && nf < today && !['committed','rejected'].includes(inv.status);
+  const priCls = { high:'pri-high', medium:'pri-medium', low:'pri-low' }[inv.priority] || 'pri-medium';
+
+  return `<div class="inv-card">
+    <div class="inv-card-top">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div class="inv-name">${inv.name}</div>
+        <span class="pri-dot ${priCls}" title="${inv.priority} priority" style="margin-top:4px;flex-shrink:0"></span>
+      </div>
+      <div class="inv-meta">
+        <span class="platform-pill"><i class="${pi}"></i> ${inv.platform}</span>
+        ${inv.investorType ? `<span>${inv.investorType}</span>` : ''}
+        ${inv.location     ? `<span><i class="fa-solid fa-location-dot"></i> ${inv.location}</span>` : ''}
+        ${inv.investmentRange ? `<span><i class="fa-solid fa-indian-rupee-sign"></i> ${inv.investmentRange}</span>` : ''}
+      </div>
+    </div>
+    <div class="inv-card-mid">
+      <span class="badge ${sm.cls}">${sm.icon} ${sm.label}</span>
+      ${inv.profileUrl ? `<a href="${inv.profileUrl}" target="_blank" class="link-chip" onclick="event.stopPropagation()"><i class="fa-solid fa-arrow-up-right-from-square"></i> Profile</a>` : ''}
+    </div>
+    <div class="inv-card-bot">
+      <div class="inv-stats">
+        <span class="inv-stat"><i class="fa-solid fa-rotate"></i> ${inv.followupCount || 0} follow-up${inv.followupCount !== 1 ? 's' : ''}</span>
+        ${inv.lastContact  ? `<span class="inv-stat"><i class="fa-regular fa-clock"></i> ${fmtDate(inv.lastContact)}</span>` : ''}
+        ${nf ? `<span class="inv-stat ${overdue ? 'inv-overdue' : ''}"><i class="fa-regular fa-calendar"></i> ${overdue ? '⚠ ' : ''}${fmtDate(nf)}</span>` : ''}
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="icon-btn success" onclick="openFollowup('${inv.id}')" title="Log Follow-up"><i class="fa-solid fa-rotate-right"></i></button>
+        <button class="icon-btn" onclick="openEditInvestor('${inv.id}')" title="Edit"><i class="fa-solid fa-pen"></i></button>
+        <button class="icon-btn danger" onclick="deleteInvestor('${inv.id}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openAddInvestor() {
+  document.getElementById('investorModalTitle').textContent = 'Add Investor';
+  document.getElementById('iEditId').value = '';
+  ['iName','iLocation','iProfileUrl','iRange','iMessageSent','iReplyContent','iNotes','iFirstContact','iLastContact','iNextFollowup']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('iPlatform').value  = 'LinkedIn';
+  document.getElementById('iType').value      = 'Individual';
+  document.getElementById('iPriority').value  = 'medium';
+  document.getElementById('iStatus').value    = 'cold';
+  document.getElementById('iFirstContact').value = new Date().toISOString().slice(0,10);
+  openModal('investorModal');
+}
+
+function openEditInvestor(id) {
+  const inv = DB.investors.find(i => i.id === id);
+  if (!inv) return;
+  document.getElementById('investorModalTitle').textContent = 'Edit Investor';
+  document.getElementById('iEditId').value          = id;
+  document.getElementById('iName').value            = inv.name || '';
+  document.getElementById('iPlatform').value        = inv.platform || 'LinkedIn';
+  document.getElementById('iType').value            = inv.investorType || 'Individual';
+  document.getElementById('iPriority').value        = inv.priority || 'medium';
+  document.getElementById('iStatus').value          = inv.status || 'cold';
+  document.getElementById('iRange').value           = inv.investmentRange || '';
+  document.getElementById('iProfileUrl').value      = inv.profileUrl || '';
+  document.getElementById('iLocation').value        = inv.location || '';
+  document.getElementById('iFirstContact').value    = inv.firstContact  ? inv.firstContact.slice(0,10)  : '';
+  document.getElementById('iLastContact').value     = inv.lastContact   ? inv.lastContact.slice(0,10)   : '';
+  document.getElementById('iNextFollowup').value    = inv.nextFollowup  ? inv.nextFollowup.slice(0,10)  : '';
+  document.getElementById('iMessageSent').value     = inv.messageSent   || '';
+  document.getElementById('iReplyContent').value    = inv.replyContent  || '';
+  document.getElementById('iNotes').value           = inv.notes         || '';
+  openModal('investorModal');
+}
+
+async function saveInvestor() {
+  const name = document.getElementById('iName').value.trim();
+  if (!name) { toast('Investor name is required.', 'error'); return; }
+  const editId = document.getElementById('iEditId').value;
+  const payload = {
+    id: editId || uid(),
+    name,
+    platform:        document.getElementById('iPlatform').value,
+    investorType:    document.getElementById('iType').value,
+    priority:        document.getElementById('iPriority').value,
+    status:          document.getElementById('iStatus').value,
+    investmentRange: document.getElementById('iRange').value.trim() || null,
+    profileUrl:      document.getElementById('iProfileUrl').value.trim() || null,
+    location:        document.getElementById('iLocation').value.trim() || null,
+    firstContact:    document.getElementById('iFirstContact').value || null,
+    lastContact:     document.getElementById('iLastContact').value || null,
+    nextFollowup:    document.getElementById('iNextFollowup').value || null,
+    messageSent:     document.getElementById('iMessageSent').value.trim() || null,
+    replyContent:    document.getElementById('iReplyContent').value.trim() || null,
+    notes:           document.getElementById('iNotes').value.trim() || null,
+  };
+  document.getElementById('saveInvestorBtn').disabled = true;
+  try {
+    if (editId) {
+      await api('PUT', `/api/investors/${editId}`, payload);
+      toast('Investor updated.');
+    } else {
+      await api('POST', '/api/investors', payload);
+      toast('Investor added.');
+    }
+    closeModal('investorModal');
+    await refreshData();
+  } catch(e) { toast(e.message, 'error'); }
+  finally { document.getElementById('saveInvestorBtn').disabled = false; }
+}
+
+function openFollowup(id) {
+  document.getElementById('fuInvestorId').value = id;
+  document.getElementById('fuNote').value = '';
+  const d = new Date(); d.setDate(d.getDate() + 7);
+  document.getElementById('fuNextDate').value = d.toISOString().slice(0,10);
+  openModal('followupModal');
+}
+
+async function confirmFollowup() {
+  const id   = document.getElementById('fuInvestorId').value;
+  const next = document.getElementById('fuNextDate').value || null;
+  const note = document.getElementById('fuNote').value.trim();
+  try {
+    await api('PATCH', `/api/investors/${id}/followup`, { nextFollowup: next });
+    if (note) {
+      const inv = DB.investors.find(i => i.id === id);
+      const existing = inv?.notes ? inv.notes + '\n' : '';
+      const today = new Date().toLocaleDateString('en-IN');
+      await api('PUT', `/api/investors/${id}`, {
+        ...inv,
+        firstContact: inv?.firstContact?.slice(0,10) || null,
+        lastContact:  new Date().toISOString().slice(0,10),
+        nextFollowup: next,
+        notes: existing + `[${today}] Follow-up: ${note}`,
+      });
+    }
+    closeModal('followupModal');
+    await refreshData();
+    toast('Follow-up logged ✓');
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function deleteInvestor(id) {
+  if (!confirm('Delete this investor from your pipeline?')) return;
+  try {
+    await api('DELETE', `/api/investors/${id}`);
+    await refreshData();
+    toast('Investor deleted.');
   } catch(e) { toast(e.message, 'error'); }
 }
 
