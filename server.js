@@ -78,6 +78,15 @@ async function initDB() {
     );
   `);
 
+  // ── Migrate: add publish columns to existing tables ─────────────────────
+  await pool.query(`
+    ALTER TABLE contents
+      ADD COLUMN IF NOT EXISTS publish_status      VARCHAR(20)  DEFAULT 'unpublished',
+      ADD COLUMN IF NOT EXISTS published_platforms TEXT,
+      ADD COLUMN IF NOT EXISTS published_date      TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS scheduled_date      DATE;
+  `);
+
   // Seed default categories only on first run
   const { rows } = await pool.query('SELECT COUNT(*) FROM categories');
   if (parseInt(rows[0].count) === 0) {
@@ -109,6 +118,8 @@ function mapContent(r) {
     dateAdded:r.date_added, datePaid:r.date_paid, notes:r.notes,
     modelName:r.model_name, influencerName:r.influencer_name,
     price:r.price, productIncluded:r.product_included,
+    publishStatus:r.publish_status, publishedPlatforms:r.published_platforms,
+    publishedDate:r.published_date, scheduledDate:r.scheduled_date,
     createdAt:r.created_at, updatedAt:r.updated_at,
   };
 }
@@ -155,13 +166,16 @@ app.post('/api/contents', async (req, res) => {
       `INSERT INTO contents
          (id,category_id,title,provider,drive_link,thumbnail_url,
           payment_status,amount,date_added,notes,
-          model_name,influencer_name,price,product_included)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+          model_name,influencer_name,price,product_included,
+          publish_status,published_platforms,published_date,scheduled_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
       [ c.id, c.categoryId, c.title, c.provider,
         c.driveLink||null, c.thumbnailUrl||null,
         c.paymentStatus||'unpaid', c.amount||0, c.dateAdded||null,
         c.notes||null, c.modelName||null, c.influencerName||null,
-        c.price||null, c.productIncluded||null ]
+        c.price||null, c.productIncluded||null,
+        c.publishStatus||'unpublished', c.publishedPlatforms||null,
+        c.publishedDate||null, c.scheduledDate||null ]
     );
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -175,13 +189,16 @@ app.put('/api/contents/:id', async (req, res) => {
          category_id=$1, title=$2, provider=$3, drive_link=$4,
          thumbnail_url=$5, payment_status=$6, amount=$7, date_added=$8,
          notes=$9, model_name=$10, influencer_name=$11, price=$12,
-         product_included=$13, updated_at=NOW()
-       WHERE id=$14`,
+         product_included=$13, publish_status=$14, published_platforms=$15,
+         published_date=$16, scheduled_date=$17, updated_at=NOW()
+       WHERE id=$18`,
       [ c.categoryId, c.title, c.provider,
         c.driveLink||null, c.thumbnailUrl||null,
         c.paymentStatus||'unpaid', c.amount||0, c.dateAdded||null,
         c.notes||null, c.modelName||null, c.influencerName||null,
-        c.price||null, c.productIncluded||null, req.params.id ]
+        c.price||null, c.productIncluded||null,
+        c.publishStatus||'unpublished', c.publishedPlatforms||null,
+        c.publishedDate||null, c.scheduledDate||null, req.params.id ]
     );
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -192,6 +209,17 @@ app.patch('/api/contents/:id/pay', async (req, res) => {
     await pool.query(
       `UPDATE contents SET payment_status='paid', date_paid=NOW(), updated_at=NOW() WHERE id=$1`,
       [req.params.id]
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/contents/:id/publish', async (req, res) => {
+  try {
+    const { platforms, publishedDate } = req.body;
+    await pool.query(
+      `UPDATE contents SET publish_status='published', published_platforms=$1, published_date=$2, updated_at=NOW() WHERE id=$3`,
+      [platforms||null, publishedDate||null, req.params.id]
     );
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -295,10 +323,14 @@ app.get('/api/export', async (req, res) => {
     const { rows: items } = await pool.query('SELECT * FROM contents ORDER BY created_at DESC');
     const catMap = Object.fromEntries(cats.map(c=>[c.id, c.name]));
     const headers = ['Title','Provider','Category','Payment Status','Amount','Date Added',
+                     'Publish Status','Published Platforms','Published Date','Scheduled Date',
                      'Drive Link','Notes','Model Name','Influencer Name','Price','Product'];
     const csvRows = [headers, ...items.map(i=>[
       i.title, i.provider, catMap[i.category_id]||'',
       i.payment_status, i.amount, i.date_added,
+      i.publish_status||'unpublished', i.published_platforms||'',
+      i.published_date ? new Date(i.published_date).toISOString().slice(0,10) : '',
+      i.scheduled_date||'',
       i.drive_link||'', i.notes||'', i.model_name||'',
       i.influencer_name||'', i.price||'', i.product_included||''
     ])];
