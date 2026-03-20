@@ -6,6 +6,7 @@
 <title>Truyerba · Content Tracker</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{
   /* Truyerba brand palette — dark brown header, forest green accents, orange-brown highlights */
@@ -314,6 +315,61 @@ textarea{resize:vertical;min-height:80px;}
   .stat-card .s-val{font-size:20px;}
   .stat-card .s-sub{font-size:11px;}
 }
+
+/* ── Master Dashboard ──────────────────────────────────────────────────────── */
+.kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;}
+.kpi-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);}
+.kpi-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.kpi-body{flex:1;min-width:0;}
+.kpi-val{font-size:20px;font-weight:800;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kpi-label{font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-top:3px;}
+.kpi-sub{font-size:11px;color:var(--text-3);margin-top:2px;}
+
+.dash-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);padding:18px 20px;box-shadow:var(--shadow);}
+.dash-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;font-size:14px;font-weight:700;}
+.dash-two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+
+.freq-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.freq-stat{text-align:center;padding:10px;background:var(--bg);border-radius:var(--radius-sm);}
+.freq-val{font-size:22px;font-weight:800;color:var(--green-700);}
+.freq-label{font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px;}
+.freq-note{font-size:12px;color:var(--text-2);margin-top:12px;padding:8px 12px;background:var(--brand-orange-light);border-radius:var(--radius-sm);}
+
+.mini-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.mini-bar-label{font-size:11px;font-weight:600;color:var(--text-2);width:48px;flex-shrink:0;}
+.mini-bar-track{flex:1;height:8px;background:var(--border);border-radius:99px;overflow:hidden;}
+.mini-bar-fill{height:100%;background:var(--green-500);border-radius:99px;}
+.mini-bar-val{font-size:11px;font-weight:700;color:var(--text-2);width:20px;text-align:right;flex-shrink:0;}
+
+.plat-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.plat-bar-icon{width:24px;text-align:center;font-size:14px;color:var(--text-2);flex-shrink:0;}
+.plat-bar-name{font-size:12px;font-weight:600;width:110px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.plat-bar-track{flex:1;height:10px;background:var(--border);border-radius:99px;overflow:hidden;}
+.plat-bar-fill{height:100%;background:linear-gradient(90deg,var(--green-700),var(--green-400));border-radius:99px;}
+.plat-bar-count{font-size:12px;font-weight:700;width:24px;text-align:right;flex-shrink:0;}
+
+.perf-table{width:100%;border-collapse:collapse;font-size:13px;}
+.perf-table th{text-align:left;font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.7px;padding:6px 8px;border-bottom:2px solid var(--border);}
+.perf-table td{padding:10px 8px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.perf-table tr:last-child td{border-bottom:none;}
+.perf-table tr:hover td{background:var(--bg);}
+
+.pay-legend{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;}
+.pay-leg-item{display:flex;align-items:center;gap:8px;}
+.pay-dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex-shrink:0;}
+
+.unpaid-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.unpaid-row:last-child{border-bottom:none;}
+
+.prov-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);}
+.prov-row:last-child{border-bottom:none;}
+.prov-rank{font-size:18px;font-weight:800;color:var(--border);width:24px;text-align:center;flex-shrink:0;}
+.prov-bar-track{height:6px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:4px;}
+.prov-bar-fill{height:100%;background:var(--green-500);border-radius:99px;}
+
+@media(max-width:1200px){.kpi-strip{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:900px){.kpi-strip{grid-template-columns:repeat(2,1fr);}.dash-two-col{grid-template-columns:1fr;}}
+@media(max-width:768px){.freq-grid{grid-template-columns:repeat(2,1fr);}}
 </style>
 </head>
 <body>
@@ -712,6 +768,7 @@ textarea{resize:vertical;min-height:80px;}
 let DB = { categories: [], contents: [], investors: [] };
 let currentView = 'dashboard', currentCatId = null;
 let searchQuery = '', filterProvider = '', filterStatus = '', filterPublishStatus = '';
+let dashCharts = {};
 
 const PUBLISH_PLATFORMS = ['Instagram','Facebook','LinkedIn','Twitter/X','YouTube','WhatsApp Status'];
 const PUB_PLAT_ICON = {
@@ -934,72 +991,313 @@ function showDashboard(el) {
   renderDashboard();
 }
 function renderDashboard() {
+  // Destroy any existing Chart.js instances
+  Object.values(dashCharts).forEach(c => c.destroy());
+  dashCharts = {};
+
   const total = DB.contents.length;
-  const paid = DB.contents.filter(c => c.paymentStatus === 'paid').length;
-  const unpaid = DB.contents.filter(c => c.paymentStatus === 'unpaid').length;
-  const pending = DB.contents.filter(c => c.paymentStatus === 'pending').length;
-  const paidAmt    = DB.contents.filter(c => c.paymentStatus === 'paid').reduce((a,c)    => a + (Number(c.amount)||0), 0);
-  const pendingAmt = DB.contents.filter(c => c.paymentStatus === 'pending').reduce((a,c) => a + (Number(c.amount)||0), 0);
-  const unpaidAmt  = DB.contents.filter(c => c.paymentStatus === 'unpaid').reduce((a,c)  => a + (Number(c.amount)||0), 0);
-  const published  = DB.contents.filter(c => c.publishStatus === 'published').length;
-  const scheduled  = DB.contents.filter(c => c.publishStatus === 'scheduled').length;
-  const notPub     = DB.contents.filter(c => !c.publishStatus || c.publishStatus === 'unpublished').length;
-  const pubRate    = total > 0 ? Math.round((published / total) * 100) : 0;
-  const recent = [...DB.contents].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0,8);
+
+  // Payment
+  const paid       = DB.contents.filter(c => c.paymentStatus === 'paid').length;
+  const unpaid     = DB.contents.filter(c => c.paymentStatus === 'unpaid').length;
+  const pending    = DB.contents.filter(c => c.paymentStatus === 'pending').length;
+  const paidAmt    = DB.contents.reduce((a,c) => c.paymentStatus==='paid'    ? a+(Number(c.amount)||0) : a, 0);
+  const pendingAmt = DB.contents.reduce((a,c) => c.paymentStatus==='pending' ? a+(Number(c.amount)||0) : a, 0);
+  const unpaidAmt  = DB.contents.reduce((a,c) => c.paymentStatus==='unpaid'  ? a+(Number(c.amount)||0) : a, 0);
+  const outstanding = unpaidAmt + pendingAmt;
+
+  // Publish
+  const published = DB.contents.filter(c => c.publishStatus === 'published').length;
+  const scheduled = DB.contents.filter(c => c.publishStatus === 'scheduled').length;
+  const notPub    = total - published - scheduled;
+  const pubRate   = total > 0 ? Math.round((published / total) * 100) : 0;
+
+  // Last 12 months
+  const now = new Date();
+  const months = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ label: d.toLocaleDateString('en-IN',{month:'short',year:'2-digit'}), year: d.getFullYear(), month: d.getMonth(), added: 0, pubCount: 0 });
+  }
+  DB.contents.forEach(c => {
+    if (c.dateAdded) {
+      const d = new Date(c.dateAdded);
+      const m = months.find(m => m.year===d.getFullYear() && m.month===d.getMonth());
+      if (m) m.added++;
+    }
+    if (c.publishedDate) {
+      const d = new Date(c.publishedDate);
+      const m = months.find(m => m.year===d.getFullYear() && m.month===d.getMonth());
+      if (m) m.pubCount++;
+    }
+  });
+
+  // Frequency stats
+  const monthsWithContent = months.filter(m => m.added > 0).length || 1;
+  const avgPerMonth = (total / monthsWithContent).toFixed(1);
+  const thisMon = months[months.length-1].added;
+  const lastMon = months[months.length-2].added;
+  const busiestMonth = [...months].sort((a,b) => b.added - a.added)[0];
+  const datesAdded = DB.contents.map(c => c.dateAdded).filter(Boolean).map(d => new Date(d)).sort((a,b) => b-a);
+  const daysSinceLast = datesAdded.length > 0 ? Math.floor((now - datesAdded[0])/(1000*60*60*24)) : null;
+  const trendUp = thisMon >= lastMon;
+
+  // Platform breakdown
+  const platCounts = {};
+  DB.contents.forEach(c => {
+    if (c.publishedPlatforms) c.publishedPlatforms.split(',').map(p=>p.trim()).filter(Boolean).forEach(p => { platCounts[p]=(platCounts[p]||0)+1; });
+  });
+  const maxPlat = Math.max(...Object.values(platCounts), 1);
+  const platEntries = Object.entries(platCounts).sort((a,b) => b[1]-a[1]);
+  const totalPlatPubs = Object.values(platCounts).reduce((a,b)=>a+b,0);
+
+  // Category performance
+  const catPerf = DB.categories.map(cat => {
+    const items = getCatContents(cat.id);
+    return { cat, total:items.length, published:items.filter(i=>i.publishStatus==='published').length, paid:items.filter(i=>i.paymentStatus==='paid').length, unpaid:items.filter(i=>i.paymentStatus==='unpaid').length, amount:items.reduce((a,c)=>a+(Number(c.amount)||0),0) };
+  }).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+
+  // Provider leaderboard
+  const providerMap = {};
+  DB.contents.forEach(c => {
+    if (!providerMap[c.provider]) providerMap[c.provider]={count:0,paid:0,unpaid:0};
+    providerMap[c.provider].count++;
+    if (c.paymentStatus==='paid') providerMap[c.provider].paid+=Number(c.amount)||0;
+    else providerMap[c.provider].unpaid+=Number(c.amount)||0;
+  });
+  const topProviders = Object.entries(providerMap).sort((a,b)=>b[1].count-a[1].count).slice(0,5);
+  const maxProvCount = topProviders.length > 0 ? topProviders[0][1].count : 1;
+
+  // Recent 8
+  const recent = [...DB.contents].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt)).slice(0,8);
 
   document.getElementById('mainArea').innerHTML = `
-  <div class="page-header">
-    <div><div class="page-title">Dashboard</div>
-    <div class="page-sub">${new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</div></div>
+  <div class="page-header" style="margin-bottom:20px">
+    <div>
+      <div class="page-title">Master Dashboard</div>
+      <div class="page-sub">${new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div>
+    </div>
   </div>
-  <div class="stats-grid">
-    <div class="stat-card"><div class="s-label">Total Content</div><div class="s-val">${total}</div><div class="s-sub">Across ${DB.categories.length} categories</div></div>
-    <div class="stat-card green"><div class="s-label">Paid</div><div class="s-val">${paid}</div><div class="s-sub">₹${paidAmt.toLocaleString('en-IN')} disbursed</div></div>
-    <div class="stat-card amber"><div class="s-label">Pending</div><div class="s-val">${pending}</div><div class="s-sub">₹${pendingAmt.toLocaleString('en-IN')} to approve</div></div>
-    <div class="stat-card red"><div class="s-label">Unpaid</div><div class="s-val">${unpaid}</div><div class="s-sub">₹${unpaidAmt.toLocaleString('en-IN')} outstanding</div></div>
+
+  <!-- KPI Strip -->
+  <div class="kpi-strip">
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:#e0f2fe;color:#0369a1"><i class="fa-solid fa-layer-group"></i></div>
+      <div class="kpi-body"><div class="kpi-val">${total}</div><div class="kpi-label">Total Content</div><div class="kpi-sub">${DB.categories.length} categories</div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:#dcfce7;color:#14532d"><i class="fa-solid fa-rocket"></i></div>
+      <div class="kpi-body"><div class="kpi-val">${published}</div><div class="kpi-label">Published</div><div class="kpi-sub">${pubRate}% publish rate</div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:#ede9fe;color:#5b21b6"><i class="fa-regular fa-calendar"></i></div>
+      <div class="kpi-body"><div class="kpi-val">${scheduled}</div><div class="kpi-label">Scheduled</div><div class="kpi-sub">${notPub} not published</div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:var(--green-100);color:var(--green-700)"><i class="fa-solid fa-circle-check"></i></div>
+      <div class="kpi-body"><div class="kpi-val" style="font-size:16px">₹${paidAmt.toLocaleString('en-IN')}</div><div class="kpi-label">Total Paid</div><div class="kpi-sub">${paid} items paid</div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:var(--red-light);color:var(--red)"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div class="kpi-body"><div class="kpi-val" style="font-size:16px">₹${outstanding.toLocaleString('en-IN')}</div><div class="kpi-label">Outstanding</div><div class="kpi-sub">${unpaid} unpaid · ${pending} pending</div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:var(--amber-light);color:#92400e"><i class="fa-solid fa-chart-line"></i></div>
+      <div class="kpi-body"><div class="kpi-val">${avgPerMonth}</div><div class="kpi-label">Avg / Month</div><div class="kpi-sub" style="color:${trendUp?'var(--green-700)':'var(--red)'}">${trendUp?'↑':'↓'} ${thisMon} this month</div></div>
+    </div>
   </div>
-  <div class="stats-grid" style="margin-top:-10px">
-    <div class="stat-card green"><div class="s-label">Published</div><div class="s-val">${published}</div><div class="s-sub">Across all platforms</div></div>
-    <div class="stat-card" style="--accent:#7c3aed"><div class="s-label">Scheduled</div><div class="s-val" style="color:#7c3aed">${scheduled}</div><div class="s-sub">Upcoming publications</div></div>
-    <div class="stat-card"><div class="s-label">Not Published</div><div class="s-val">${notPub}</div><div class="s-sub">Still to go live</div></div>
-    <div class="stat-card green"><div class="s-label">Publish Rate</div><div class="s-val">${pubRate}%</div><div class="s-sub">Content published so far</div></div>
+
+  <!-- Monthly Activity Chart -->
+  <div class="dash-card" style="margin-bottom:20px">
+    <div class="dash-card-header">
+      <span><i class="fa-solid fa-chart-column" style="color:var(--green-500)"></i> Monthly Activity — Content Added vs Published</span>
+      <span style="font-size:12px;color:var(--text-3)">Last 12 months</span>
+    </div>
+    <div style="position:relative;height:240px;padding:4px 0">
+      <canvas id="chartMonthly"></canvas>
+    </div>
   </div>
-  <div class="section-title" style="margin-bottom:14px"><i class="fa-solid fa-grid-2"></i> Categories Overview</div>
-  <div class="content-grid" style="margin-bottom:28px">
-    ${DB.categories.map(cat => {
-      const items = getCatContents(cat.id);
-      const catPaid = items.filter(i => i.paymentStatus === 'paid').length;
-      return `<div class="content-card" onclick="showCategory('${cat.id}',null)">
-        <div class="card-preview" style="height:90px;background:linear-gradient(135deg,var(--green-900),var(--green-700))">
-          <span style="font-size:34px">${cat.icon}</span>
-        </div>
-        <div class="card-body" style="padding:12px">
-          <div class="card-title">${cat.name}</div>
-          <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
-            <span class="badge badge-paid">${catPaid} paid</span>
-            <span style="font-size:12px;color:var(--text-3)">${items.length} total</span>
+
+  <!-- Row: Frequency + Platforms -->
+  <div class="dash-two-col" style="margin-bottom:20px">
+    <div class="dash-card">
+      <div class="dash-card-header"><span><i class="fa-solid fa-wave-square" style="color:var(--green-500)"></i> Posting Frequency</span></div>
+      <div class="freq-grid">
+        <div class="freq-stat"><div class="freq-val">${thisMon}</div><div class="freq-label">This Month</div></div>
+        <div class="freq-stat"><div class="freq-val">${lastMon}</div><div class="freq-label">Last Month</div></div>
+        <div class="freq-stat"><div class="freq-val">${avgPerMonth}</div><div class="freq-label">Monthly Avg</div></div>
+        <div class="freq-stat"><div class="freq-val">${daysSinceLast !== null ? daysSinceLast : '—'}</div><div class="freq-label">Days Since Last</div></div>
+      </div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Last 6 Months</div>
+        ${months.slice(-6).map(m => `
+          <div class="mini-bar-row">
+            <div class="mini-bar-label">${m.label}</div>
+            <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${m.added>0?Math.max((m.added/(busiestMonth.added||1))*100,4):0}%"></div></div>
+            <div class="mini-bar-val">${m.added}</div>
+          </div>`).join('')}
+      </div>
+      ${busiestMonth.added > 0 ? `<div class="freq-note"><i class="fa-solid fa-fire" style="color:var(--brand-orange)"></i> Busiest: <strong>${busiestMonth.label}</strong> with ${busiestMonth.added} posts</div>` : ''}
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header"><span><i class="fa-solid fa-share-nodes" style="color:var(--green-500)"></i> Platform Reach</span></div>
+      ${platEntries.length === 0
+        ? `<div class="empty" style="padding:40px 0"><div class="empty-icon" style="font-size:36px;margin-bottom:10px">📡</div><p style="font-size:13px;color:var(--text-3)">No published content yet. Start publishing to see platform stats.</p></div>`
+        : platEntries.map(([plat, count]) => `
+          <div class="plat-bar-row">
+            <div class="plat-bar-icon"><i class="${PUB_PLAT_ICON[plat]||'fa-solid fa-globe'}"></i></div>
+            <div class="plat-bar-name">${plat}</div>
+            <div class="plat-bar-track"><div class="plat-bar-fill" style="width:${Math.max((count/maxPlat)*100,4)}%"></div></div>
+            <div class="plat-bar-count">${count}</div>
+          </div>`).join('')}
+      ${totalPlatPubs > 0 ? `<div style="margin-top:16px;padding:12px;background:var(--green-50);border-radius:var(--radius-sm);text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--green-700)">${totalPlatPubs}</div>
+        <div style="font-size:11px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Total publishes across all platforms</div>
+      </div>` : ''}
+    </div>
+  </div>
+
+  <!-- Row: Category Performance + Payment Health -->
+  <div class="dash-two-col" style="margin-bottom:20px">
+    <div class="dash-card">
+      <div class="dash-card-header"><span><i class="fa-solid fa-folder-open" style="color:var(--green-500)"></i> Category Performance</span></div>
+      ${catPerf.length === 0
+        ? `<div class="empty" style="padding:30px 0"><p style="font-size:13px;color:var(--text-3)">No content yet.</p></div>`
+        : `<table class="perf-table">
+            <thead><tr><th>Category</th><th>Total</th><th>Published</th><th>Paid</th><th>Amount</th></tr></thead>
+            <tbody>${catPerf.map(r => `<tr>
+              <td><span style="margin-right:5px">${r.cat.icon}</span>${r.cat.name}</td>
+              <td><strong>${r.total}</strong></td>
+              <td><span style="color:#14532d;font-weight:600">${r.published}</span></td>
+              <td><span style="color:var(--green-700)">${r.paid}</span>${r.unpaid>0?`<span style="color:var(--red);margin-left:4px;font-size:11px">+${r.unpaid}u</span>`:''}  </td>
+              <td>${r.amount>0?`₹${r.amount.toLocaleString('en-IN')}`:'—'}</td>
+            </tr>`).join('')}</tbody>
+          </table>`}
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-card-header"><span><i class="fa-solid fa-indian-rupee-sign" style="color:var(--green-500)"></i> Payment Health</span></div>
+      <div style="position:relative;height:180px;margin-bottom:16px">
+        <canvas id="chartPayment"></canvas>
+      </div>
+      <div class="pay-legend">
+        <div class="pay-leg-item"><span class="pay-dot" style="background:#3A7D35"></span><div><div style="font-weight:700;font-size:13px">₹${paidAmt.toLocaleString('en-IN')}</div><div style="font-size:11px;color:var(--text-3)">Paid (${paid})</div></div></div>
+        <div class="pay-leg-item"><span class="pay-dot" style="background:#F59E0B"></span><div><div style="font-weight:700;font-size:13px">₹${pendingAmt.toLocaleString('en-IN')}</div><div style="font-size:11px;color:var(--text-3)">Pending (${pending})</div></div></div>
+        <div class="pay-leg-item"><span class="pay-dot" style="background:#EF4444"></span><div><div style="font-weight:700;font-size:13px">₹${unpaidAmt.toLocaleString('en-IN')}</div><div style="font-size:11px;color:var(--text-3)">Unpaid (${unpaid})</div></div></div>
+      </div>
+      ${DB.contents.filter(c=>c.paymentStatus!=='paid'&&Number(c.amount)>0).length > 0 ? `
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Top Unpaid Items</div>
+        ${DB.contents.filter(c=>c.paymentStatus!=='paid'&&Number(c.amount)>0).sort((a,b)=>Number(b.amount)-Number(a.amount)).slice(0,3).map(c=>`
+        <div class="unpaid-row">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.title}</div>
+            <div style="font-size:11px;color:var(--text-3)">${c.provider} · ${c.paymentStatus}</div>
           </div>
-        </div>
-      </div>`;
-    }).join('')}
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:13px;font-weight:700;color:var(--red)">₹${Number(c.amount).toLocaleString('en-IN')}</div>
+            <button class="btn btn-sm btn-primary" style="margin-top:4px;padding:3px 8px;font-size:11px" onclick="markPaid('${c.id}')">Pay</button>
+          </div>
+        </div>`).join('')}
+      </div>` : ''}
+    </div>
   </div>
-  ${recent.length > 0 ? `
-  <div class="section-title"><i class="fa-solid fa-clock-rotate-left"></i> Recent Content</div>
-  <div class="recent-table"><table>
-    <thead><tr><th>Title</th><th>Provider</th><th>Category</th><th>Status</th><th>Amount</th><th>Date</th><th>Link</th></tr></thead>
-    <tbody>${recent.map(item => {
-      const cat = getCat(item.categoryId);
-      return `<tr>
-        <td><strong>${item.title}</strong></td>
-        <td><div class="provider-pill"><div class="provider-avatar">${initials(item.provider)}</div>${item.provider}</div></td>
-        <td>${cat ? `${cat.icon} ${cat.name}` : '—'}</td>
-        <td>${badgeHtml(item.paymentStatus)}</td>
-        <td>${item.amount && Number(item.amount) > 0 ? `₹${Number(item.amount).toLocaleString('en-IN')}` : '—'}</td>
-        <td>${fmtDate(item.dateAdded)}</td>
-        <td>${item.driveLink ? `<a class="link-chip" href="${item.driveLink}" target="_blank"><i class="fa-solid fa-link"></i> Open</a>` : '—'}</td>
-      </tr>`;
-    }).join('')}</tbody>
-  </table></div>` : ''}`;
+
+  <!-- Provider Leaderboard -->
+  <div class="dash-card" style="margin-bottom:20px">
+    <div class="dash-card-header">
+      <span><i class="fa-solid fa-ranking-star" style="color:var(--green-500)"></i> Provider Leaderboard</span>
+      <span style="font-size:12px;color:var(--text-3)">Top 5 by content count</span>
+    </div>
+    ${topProviders.length === 0
+      ? `<div class="empty" style="padding:30px 0"><p style="font-size:13px;color:var(--text-3)">No providers yet.</p></div>`
+      : topProviders.map(([name, data], idx) => `
+        <div class="prov-row">
+          <div class="prov-rank" style="color:${idx===0?'var(--brand-orange)':idx===1?'#94a3b8':idx===2?'#b45309':'var(--border)'}">${idx+1}</div>
+          <div class="provider-avatar" style="width:34px;height:34px;font-size:13px;flex-shrink:0">${initials(name)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600">${name}</div>
+            <div class="prov-bar-track"><div class="prov-bar-fill" style="width:${Math.max((data.count/maxProvCount)*100,4)}%"></div></div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;margin-left:12px">
+            <div style="font-size:14px;font-weight:700">${data.count} <span style="font-size:11px;color:var(--text-3);font-weight:400">items</span></div>
+            <div style="font-size:12px"><span style="color:var(--green-700)">₹${data.paid.toLocaleString('en-IN')} paid</span>${data.unpaid>0?` · <span style="color:var(--red)">₹${data.unpaid.toLocaleString('en-IN')} owed</span>`:''}</div>
+          </div>
+        </div>`).join('')}
+  </div>
+
+  <!-- Recent Activity -->
+  <div class="dash-card" style="margin-bottom:8px">
+    <div class="dash-card-header">
+      <span><i class="fa-solid fa-clock-rotate-left" style="color:var(--green-500)"></i> Recent Activity</span>
+      <button class="btn btn-ghost btn-sm" onclick="showAllContent(null)">View All</button>
+    </div>
+    ${recent.length === 0
+      ? `<div class="empty" style="padding:30px 0"><p style="font-size:13px;color:var(--text-3)">No content yet.</p></div>`
+      : `<div style="overflow-x:auto"><table class="perf-table" style="min-width:560px">
+          <thead><tr><th>Title</th><th>Category</th><th>Provider</th><th>Payment</th><th>Publish</th><th>Date Added</th></tr></thead>
+          <tbody>${recent.map(item => {
+            const cat = getCat(item.categoryId);
+            return `<tr>
+              <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><strong>${item.title}</strong></td>
+              <td>${cat?`${cat.icon} ${cat.name}`:'—'}</td>
+              <td><div class="provider-pill"><div class="provider-avatar" style="width:20px;height:20px;font-size:9px">${initials(item.provider)}</div>${item.provider}</div></td>
+              <td>${badgeHtml(item.paymentStatus)}</td>
+              <td>${publishBadgeHtml(item.publishStatus)||'<span style="font-size:11px;color:var(--text-3)">—</span>'}</td>
+              <td style="white-space:nowrap;color:var(--text-3)">${fmtDate(item.dateAdded)}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table></div>`}
+  </div>`;
+
+  // Initialize Chart.js charts after HTML is rendered
+  requestAnimationFrame(() => initDashCharts(months, paidAmt, pendingAmt, unpaidAmt));
+}
+
+function initDashCharts(months, paidAmt, pendingAmt, unpaidAmt) {
+  const ctxMonthly = document.getElementById('chartMonthly');
+  if (ctxMonthly) {
+    dashCharts.monthly = new Chart(ctxMonthly, {
+      type: 'bar',
+      data: {
+        labels: months.map(m => m.label),
+        datasets: [
+          { label: 'Content Added', data: months.map(m => m.added), backgroundColor: 'rgba(58,125,53,0.85)', borderRadius: 4, borderSkipped: false },
+          { label: 'Published',     data: months.map(m => m.pubCount), backgroundColor: 'rgba(200,90,0,0.85)',  borderRadius: 4, borderSkipped: false },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position:'top', labels:{ font:{family:'Inter',size:12}, boxWidth:12, padding:16 } },
+          tooltip: { mode:'index', intersect:false }
+        },
+        scales: {
+          x: { grid:{display:false}, ticks:{font:{family:'Inter',size:11}} },
+          y: { beginAtZero:true, ticks:{stepSize:1,font:{family:'Inter',size:11}}, grid:{color:'rgba(0,0,0,0.05)'} }
+        }
+      }
+    });
+  }
+  const ctxPay = document.getElementById('chartPayment');
+  if (ctxPay) {
+    const total = paidAmt + pendingAmt + unpaidAmt;
+    dashCharts.payment = new Chart(ctxPay, {
+      type: 'doughnut',
+      data: {
+        labels: ['Paid','Pending','Unpaid'],
+        datasets: [{ data: total > 0 ? [paidAmt, pendingAmt, unpaidAmt] : [1,0,0], backgroundColor: total > 0 ? ['#3A7D35','#F59E0B','#EF4444'] : ['#e2e8f0','#e2e8f0','#e2e8f0'], borderWidth: 0, hoverOffset: 6 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '70%',
+        plugins: {
+          legend: { display:false },
+          tooltip: { callbacks: { label: ctx => total > 0 ? ` ₹${Number(ctx.raw).toLocaleString('en-IN')}` : ' No data' } }
+        }
+      }
+    });
+  }
 }
 
 function showCategory(catId, el) {
