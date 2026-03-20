@@ -55,6 +55,27 @@ async function initDB() {
       created_at       TIMESTAMPTZ    DEFAULT NOW(),
       updated_at       TIMESTAMPTZ    DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS investors (
+      id               VARCHAR(60)    PRIMARY KEY,
+      name             VARCHAR(255)   NOT NULL,
+      platform         VARCHAR(50)    DEFAULT 'LinkedIn',
+      profile_url      TEXT,
+      investor_type    VARCHAR(50)    DEFAULT 'Individual',
+      location         VARCHAR(255),
+      status           VARCHAR(50)    DEFAULT 'cold',
+      priority         VARCHAR(20)    DEFAULT 'medium',
+      first_contact    DATE,
+      last_contact     DATE,
+      next_followup    DATE,
+      followup_count   INTEGER        DEFAULT 0,
+      message_sent     TEXT,
+      reply_content    TEXT,
+      investment_range VARCHAR(100),
+      notes            TEXT,
+      created_at       TIMESTAMPTZ    DEFAULT NOW(),
+      updated_at       TIMESTAMPTZ    DEFAULT NOW()
+    );
   `);
 
   // Seed default categories only on first run
@@ -179,6 +200,90 @@ app.patch('/api/contents/:id/pay', async (req, res) => {
 app.delete('/api/contents/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM contents WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Helper: Investor ─────────────────────────────────────────────────────────
+function mapInvestor(r) {
+  return {
+    id: r.id, name: r.name, platform: r.platform,
+    profileUrl: r.profile_url, investorType: r.investor_type,
+    location: r.location, status: r.status, priority: r.priority,
+    firstContact: r.first_contact, lastContact: r.last_contact,
+    nextFollowup: r.next_followup, followupCount: r.followup_count,
+    messageSent: r.message_sent, replyContent: r.reply_content,
+    investmentRange: r.investment_range, notes: r.notes,
+    createdAt: r.created_at, updatedAt: r.updated_at,
+  };
+}
+
+// ── API: Investors ────────────────────────────────────────────────────────────
+app.get('/api/investors', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM investors ORDER BY created_at DESC');
+    res.json(rows.map(mapInvestor));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/investors', async (req, res) => {
+  try {
+    const v = req.body;
+    await pool.query(
+      `INSERT INTO investors
+         (id,name,platform,profile_url,investor_type,location,status,priority,
+          first_contact,last_contact,next_followup,message_sent,reply_content,
+          investment_range,notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+      [ v.id, v.name, v.platform||'LinkedIn', v.profileUrl||null,
+        v.investorType||'Individual', v.location||null, v.status||'cold',
+        v.priority||'medium', v.firstContact||null, v.lastContact||null,
+        v.nextFollowup||null, v.messageSent||null, v.replyContent||null,
+        v.investmentRange||null, v.notes||null ]
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/investors/:id', async (req, res) => {
+  try {
+    const v = req.body;
+    await pool.query(
+      `UPDATE investors SET
+         name=$1, platform=$2, profile_url=$3, investor_type=$4, location=$5,
+         status=$6, priority=$7, first_contact=$8, last_contact=$9,
+         next_followup=$10, message_sent=$11, reply_content=$12,
+         investment_range=$13, notes=$14, updated_at=NOW()
+       WHERE id=$15`,
+      [ v.name, v.platform||'LinkedIn', v.profileUrl||null,
+        v.investorType||'Individual', v.location||null, v.status||'cold',
+        v.priority||'medium', v.firstContact||null, v.lastContact||null,
+        v.nextFollowup||null, v.messageSent||null, v.replyContent||null,
+        v.investmentRange||null, v.notes||null, req.params.id ]
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/investors/:id/followup', async (req, res) => {
+  try {
+    const { nextFollowup } = req.body;
+    await pool.query(
+      `UPDATE investors SET
+         followup_count = followup_count + 1,
+         last_contact   = CURRENT_DATE,
+         next_followup  = $1,
+         updated_at     = NOW()
+       WHERE id = $2`,
+      [ nextFollowup || null, req.params.id ]
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/investors/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM investors WHERE id=$1', [req.params.id]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
