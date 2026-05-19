@@ -5,7 +5,7 @@ const { Pool } = require('pg');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// ── Database ────────────────────────────────────────────────────────────────
+// ── Database ──────────────────────────────────────────────────────────────────
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
@@ -76,9 +76,52 @@ async function initDB() {
       created_at       TIMESTAMPTZ    DEFAULT NOW(),
       updated_at       TIMESTAMPTZ    DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS influencer_collabs (
+      id                  VARCHAR(60)    PRIMARY KEY,
+      influencer_name     VARCHAR(255)   NOT NULL,
+      handle              VARCHAR(255),
+      platform            VARCHAR(50)    DEFAULT 'Instagram',
+      follower_count      INTEGER        DEFAULT 0,
+      tier                VARCHAR(20)    DEFAULT 'micro',
+      email               VARCHAR(255),
+      phone               VARCHAR(100),
+      collab_type         VARCHAR(20)    DEFAULT 'paid',
+      total_amount        NUMERIC(12,2)  DEFAULT 0,
+      payment_status      VARCHAR(20)    DEFAULT 'unpaid',
+      amount_paid         NUMERIC(12,2)  DEFAULT 0,
+      payment_date        DATE,
+      invoice_received    BOOLEAN        DEFAULT false,
+      product_included    TEXT,
+      parcel_status       VARCHAR(30)    DEFAULT 'not_required',
+      parcel_tracking     VARCHAR(255),
+      parcel_sent_date    DATE,
+      script_type         VARCHAR(30)    DEFAULT 'self_generated',
+      script_status       VARCHAR(30)    DEFAULT 'not_started',
+      script_link         TEXT,
+      total_reels         INTEGER        DEFAULT 1,
+      reels_done          INTEGER        DEFAULT 0,
+      content_review      VARCHAR(30)    DEFAULT 'not_submitted',
+      post_link           TEXT,
+      content_published   BOOLEAN        DEFAULT false,
+      published_date      DATE,
+      published_platforms TEXT,
+      subscription_type   VARCHAR(30)    DEFAULT 'one_time',
+      subscription_active BOOLEAN        DEFAULT false,
+      subscription_months INTEGER        DEFAULT 0,
+      subscription_start  DATE,
+      subscription_end    DATE,
+      next_delivery_date  DATE,
+      contract_signed     BOOLEAN        DEFAULT false,
+      contract_date       DATE,
+      notes               TEXT,
+      date_added          DATE           DEFAULT CURRENT_DATE,
+      created_at          TIMESTAMPTZ    DEFAULT NOW(),
+      updated_at          TIMESTAMPTZ    DEFAULT NOW()
+    );
   `);
 
-  // ── Migrate: add publish columns to existing tables ─────────────────────
+  // ── Migrate: add publish columns to contents ─────────────────────────────
   await pool.query(`
     ALTER TABLE contents
       ADD COLUMN IF NOT EXISTS publish_status      VARCHAR(20)  DEFAULT 'unpublished',
@@ -92,8 +135,7 @@ async function initDB() {
   if (parseInt(rows[0].count) === 0) {
     for (const c of DEFAULT_CATEGORIES) {
       await pool.query(
-        `INSERT INTO categories (id, name, icon, type, is_default)
-         VALUES ($1,$2,$3,$4,true)`,
+        `INSERT INTO categories (id, name, icon, type, is_default) VALUES ($1,$2,$3,$4,true)`,
         [c.id, c.name, c.icon, c.type]
       );
     }
@@ -101,11 +143,11 @@ async function initDB() {
   }
 }
 
-// ── Middleware ───────────────────────────────────────────────────────────────
+// ── Middleware ────────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Helper ───────────────────────────────────────────────────────────────────
+// ── Mappers ───────────────────────────────────────────────────────────────────
 function mapCat(r) {
   return { id:r.id, name:r.name, icon:r.icon, type:r.type,
            isDefault:r.is_default, createdAt:r.created_at };
@@ -123,15 +165,51 @@ function mapContent(r) {
     createdAt:r.created_at, updatedAt:r.updated_at,
   };
 }
+function mapInvestor(r) {
+  return {
+    id:r.id, name:r.name, platform:r.platform,
+    profileUrl:r.profile_url, investorType:r.investor_type,
+    location:r.location, status:r.status, priority:r.priority,
+    firstContact:r.first_contact, lastContact:r.last_contact,
+    nextFollowup:r.next_followup, followupCount:r.followup_count,
+    messageSent:r.message_sent, replyContent:r.reply_content,
+    investmentRange:r.investment_range, notes:r.notes,
+    createdAt:r.created_at, updatedAt:r.updated_at,
+  };
+}
+function mapInfluencerCollab(r) {
+  return {
+    id: r.id, influencerName: r.influencer_name, handle: r.handle,
+    platform: r.platform, followerCount: r.follower_count, tier: r.tier,
+    email: r.email, phone: r.phone,
+    collabType: r.collab_type, totalAmount: r.total_amount,
+    paymentStatus: r.payment_status, amountPaid: r.amount_paid,
+    paymentDate: r.payment_date, invoiceReceived: r.invoice_received,
+    productIncluded: r.product_included,
+    parcelStatus: r.parcel_status, parcelTracking: r.parcel_tracking,
+    parcelSentDate: r.parcel_sent_date,
+    scriptType: r.script_type, scriptStatus: r.script_status,
+    scriptLink: r.script_link,
+    totalReels: r.total_reels, reelsDone: r.reels_done,
+    contentReview: r.content_review, postLink: r.post_link,
+    contentPublished: r.content_published, publishedDate: r.published_date,
+    publishedPlatforms: r.published_platforms,
+    subscriptionType: r.subscription_type, subscriptionActive: r.subscription_active,
+    subscriptionMonths: r.subscription_months, subscriptionStart: r.subscription_start,
+    subscriptionEnd: r.subscription_end, nextDeliveryDate: r.next_delivery_date,
+    contractSigned: r.contract_signed, contractDate: r.contract_date,
+    notes: r.notes, dateAdded: r.date_added,
+    createdAt: r.created_at, updatedAt: r.updated_at,
+  };
+}
 
-// ── API: Categories ──────────────────────────────────────────────────────────
+// ── API: Categories ───────────────────────────────────────────────────────────
 app.get('/api/categories', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM categories ORDER BY created_at ASC');
     res.json(rows.map(mapCat));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 app.post('/api/categories', async (req, res) => {
   try {
     const { id, name, icon, type } = req.body;
@@ -142,7 +220,6 @@ app.post('/api/categories', async (req, res) => {
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 app.delete('/api/categories/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM contents   WHERE category_id=$1', [req.params.id]);
@@ -151,14 +228,13 @@ app.delete('/api/categories/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── API: Contents ────────────────────────────────────────────────────────────
+// ── API: Contents ─────────────────────────────────────────────────────────────
 app.get('/api/contents', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT * FROM contents ORDER BY created_at DESC');
     res.json(rows.map(mapContent));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 app.post('/api/contents', async (req, res) => {
   try {
     const c = req.body;
@@ -169,18 +245,17 @@ app.post('/api/contents', async (req, res) => {
           model_name,influencer_name,price,product_included,
           publish_status,published_platforms,published_date,scheduled_date)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
-      [ c.id, c.categoryId, c.title, c.provider,
-        c.driveLink||null, c.thumbnailUrl||null,
-        c.paymentStatus||'unpaid', c.amount||0, c.dateAdded||null,
-        c.notes||null, c.modelName||null, c.influencerName||null,
-        c.price||null, c.productIncluded||null,
-        c.publishStatus||'unpublished', c.publishedPlatforms||null,
-        c.publishedDate||null, c.scheduledDate||null ]
+      [c.id, c.categoryId, c.title, c.provider,
+       c.driveLink||null, c.thumbnailUrl||null,
+       c.paymentStatus||'unpaid', c.amount||0, c.dateAdded||null,
+       c.notes||null, c.modelName||null, c.influencerName||null,
+       c.price||null, c.productIncluded||null,
+       c.publishStatus||'unpublished', c.publishedPlatforms||null,
+       c.publishedDate||null, c.scheduledDate||null]
     );
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 app.put('/api/contents/:id', async (req, res) => {
   try {
     const c = req.body;
@@ -192,18 +267,17 @@ app.put('/api/contents/:id', async (req, res) => {
          product_included=$13, publish_status=$14, published_platforms=$15,
          published_date=$16, scheduled_date=$17, updated_at=NOW()
        WHERE id=$18`,
-      [ c.categoryId, c.title, c.provider,
-        c.driveLink||null, c.thumbnailUrl||null,
-        c.paymentStatus||'unpaid', c.amount||0, c.dateAdded||null,
-        c.notes||null, c.modelName||null, c.influencerName||null,
-        c.price||null, c.productIncluded||null,
-        c.publishStatus||'unpublished', c.publishedPlatforms||null,
-        c.publishedDate||null, c.scheduledDate||null, req.params.id ]
+      [c.categoryId, c.title, c.provider,
+       c.driveLink||null, c.thumbnailUrl||null,
+       c.paymentStatus||'unpaid', c.amount||0, c.dateAdded||null,
+       c.notes||null, c.modelName||null, c.influencerName||null,
+       c.price||null, c.productIncluded||null,
+       c.publishStatus||'unpublished', c.publishedPlatforms||null,
+       c.publishedDate||null, c.scheduledDate||null, req.params.id]
     );
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 app.patch('/api/contents/:id/pay', async (req, res) => {
   try {
     await pool.query(
@@ -213,7 +287,6 @@ app.patch('/api/contents/:id/pay', async (req, res) => {
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 app.patch('/api/contents/:id/publish', async (req, res) => {
   try {
     const { platforms, publishedDate } = req.body;
@@ -224,27 +297,12 @@ app.patch('/api/contents/:id/publish', async (req, res) => {
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 app.delete('/api/contents/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM contents WHERE id=$1', [req.params.id]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
-// ── Helper: Investor ─────────────────────────────────────────────────────────
-function mapInvestor(r) {
-  return {
-    id: r.id, name: r.name, platform: r.platform,
-    profileUrl: r.profile_url, investorType: r.investor_type,
-    location: r.location, status: r.status, priority: r.priority,
-    firstContact: r.first_contact, lastContact: r.last_contact,
-    nextFollowup: r.next_followup, followupCount: r.followup_count,
-    messageSent: r.message_sent, replyContent: r.reply_content,
-    investmentRange: r.investment_range, notes: r.notes,
-    createdAt: r.created_at, updatedAt: r.updated_at,
-  };
-}
 
 // ── API: Investors ────────────────────────────────────────────────────────────
 app.get('/api/investors', async (req, res) => {
@@ -253,7 +311,6 @@ app.get('/api/investors', async (req, res) => {
     res.json(rows.map(mapInvestor));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 app.post('/api/investors', async (req, res) => {
   try {
     const v = req.body;
@@ -263,16 +320,15 @@ app.post('/api/investors', async (req, res) => {
           first_contact,last_contact,next_followup,message_sent,reply_content,
           investment_range,notes)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-      [ v.id, v.name, v.platform||'LinkedIn', v.profileUrl||null,
-        v.investorType||'Individual', v.location||null, v.status||'cold',
-        v.priority||'medium', v.firstContact||null, v.lastContact||null,
-        v.nextFollowup||null, v.messageSent||null, v.replyContent||null,
-        v.investmentRange||null, v.notes||null ]
+      [v.id, v.name, v.platform||'LinkedIn', v.profileUrl||null,
+       v.investorType||'Individual', v.location||null, v.status||'cold',
+       v.priority||'medium', v.firstContact||null, v.lastContact||null,
+       v.nextFollowup||null, v.messageSent||null, v.replyContent||null,
+       v.investmentRange||null, v.notes||null]
     );
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 app.put('/api/investors/:id', async (req, res) => {
   try {
     const v = req.body;
@@ -283,16 +339,15 @@ app.put('/api/investors/:id', async (req, res) => {
          next_followup=$10, message_sent=$11, reply_content=$12,
          investment_range=$13, notes=$14, updated_at=NOW()
        WHERE id=$15`,
-      [ v.name, v.platform||'LinkedIn', v.profileUrl||null,
-        v.investorType||'Individual', v.location||null, v.status||'cold',
-        v.priority||'medium', v.firstContact||null, v.lastContact||null,
-        v.nextFollowup||null, v.messageSent||null, v.replyContent||null,
-        v.investmentRange||null, v.notes||null, req.params.id ]
+      [v.name, v.platform||'LinkedIn', v.profileUrl||null,
+       v.investorType||'Individual', v.location||null, v.status||'cold',
+       v.priority||'medium', v.firstContact||null, v.lastContact||null,
+       v.nextFollowup||null, v.messageSent||null, v.replyContent||null,
+       v.investmentRange||null, v.notes||null, req.params.id]
     );
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 app.patch('/api/investors/:id/followup', async (req, res) => {
   try {
     const { nextFollowup } = req.body;
@@ -303,12 +358,11 @@ app.patch('/api/investors/:id/followup', async (req, res) => {
          next_followup  = $1,
          updated_at     = NOW()
        WHERE id = $2`,
-      [ nextFollowup || null, req.params.id ]
+      [nextFollowup||null, req.params.id]
     );
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
-
 app.delete('/api/investors/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM investors WHERE id=$1', [req.params.id]);
@@ -316,16 +370,107 @@ app.delete('/api/investors/:id', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Export CSV ───────────────────────────────────────────────────────────────
+// ── API: Influencer Collabs ───────────────────────────────────────────────────
+app.get('/api/influencer-collabs', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM influencer_collabs ORDER BY created_at DESC');
+    res.json(rows.map(mapInfluencerCollab));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/influencer-collabs', async (req, res) => {
+  try {
+    const c = req.body;
+    await pool.query(
+      `INSERT INTO influencer_collabs
+         (id,influencer_name,handle,platform,follower_count,tier,email,phone,
+          collab_type,total_amount,payment_status,amount_paid,payment_date,invoice_received,
+          product_included,parcel_status,parcel_tracking,parcel_sent_date,
+          script_type,script_status,script_link,
+          total_reels,reels_done,content_review,post_link,content_published,
+          published_date,published_platforms,
+          subscription_type,subscription_active,subscription_months,
+          subscription_start,subscription_end,next_delivery_date,
+          contract_signed,contract_date,notes,date_added)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
+               $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,
+               $35,$36,$37,$38)`,
+      [c.id, c.influencerName, c.handle||null, c.platform||'Instagram',
+       c.followerCount||0, c.tier||'micro', c.email||null, c.phone||null,
+       c.collabType||'paid', c.totalAmount||0, c.paymentStatus||'unpaid',
+       c.amountPaid||0, c.paymentDate||null, c.invoiceReceived||false,
+       c.productIncluded||null, c.parcelStatus||'not_required',
+       c.parcelTracking||null, c.parcelSentDate||null,
+       c.scriptType||'self_generated', c.scriptStatus||'not_started',
+       c.scriptLink||null,
+       c.totalReels||1, c.reelsDone||0, c.contentReview||'not_submitted',
+       c.postLink||null, c.contentPublished||false,
+       c.publishedDate||null, c.publishedPlatforms||null,
+       c.subscriptionType||'one_time', c.subscriptionActive||false,
+       c.subscriptionMonths||0, c.subscriptionStart||null,
+       c.subscriptionEnd||null, c.nextDeliveryDate||null,
+       c.contractSigned||false, c.contractDate||null,
+       c.notes||null, c.dateAdded||null]
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/influencer-collabs/:id', async (req, res) => {
+  try {
+    const c = req.body;
+    await pool.query(
+      `UPDATE influencer_collabs SET
+         influencer_name=$1,handle=$2,platform=$3,follower_count=$4,tier=$5,
+         email=$6,phone=$7,collab_type=$8,total_amount=$9,payment_status=$10,
+         amount_paid=$11,payment_date=$12,invoice_received=$13,product_included=$14,
+         parcel_status=$15,parcel_tracking=$16,parcel_sent_date=$17,
+         script_type=$18,script_status=$19,script_link=$20,
+         total_reels=$21,reels_done=$22,content_review=$23,post_link=$24,
+         content_published=$25,published_date=$26,published_platforms=$27,
+         subscription_type=$28,subscription_active=$29,subscription_months=$30,
+         subscription_start=$31,subscription_end=$32,next_delivery_date=$33,
+         contract_signed=$34,contract_date=$35,notes=$36,date_added=$37,
+         updated_at=NOW()
+       WHERE id=$38`,
+      [c.influencerName, c.handle||null, c.platform||'Instagram',
+       c.followerCount||0, c.tier||'micro', c.email||null, c.phone||null,
+       c.collabType||'paid', c.totalAmount||0, c.paymentStatus||'unpaid',
+       c.amountPaid||0, c.paymentDate||null, c.invoiceReceived||false,
+       c.productIncluded||null, c.parcelStatus||'not_required',
+       c.parcelTracking||null, c.parcelSentDate||null,
+       c.scriptType||'self_generated', c.scriptStatus||'not_started',
+       c.scriptLink||null,
+       c.totalReels||1, c.reelsDone||0, c.contentReview||'not_submitted',
+       c.postLink||null, c.contentPublished||false,
+       c.publishedDate||null, c.publishedPlatforms||null,
+       c.subscriptionType||'one_time', c.subscriptionActive||false,
+       c.subscriptionMonths||0, c.subscriptionStart||null,
+       c.subscriptionEnd||null, c.nextDeliveryDate||null,
+       c.contractSigned||false, c.contractDate||null,
+       c.notes||null, c.dateAdded||null, req.params.id]
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/influencer-collabs/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM influencer_collabs WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Export CSV ────────────────────────────────────────────────────────────────
 app.get('/api/export', async (req, res) => {
   try {
-    const { rows: cats } = await pool.query('SELECT * FROM categories');
+    const { rows: cats }  = await pool.query('SELECT * FROM categories');
     const { rows: items } = await pool.query('SELECT * FROM contents ORDER BY created_at DESC');
-    const catMap = Object.fromEntries(cats.map(c=>[c.id, c.name]));
+    const catMap = Object.fromEntries(cats.map(c => [c.id, c.name]));
     const headers = ['Title','Provider','Category','Payment Status','Amount','Date Added',
                      'Publish Status','Published Platforms','Published Date','Scheduled Date',
                      'Drive Link','Notes','Model Name','Influencer Name','Price','Product'];
-    const csvRows = [headers, ...items.map(i=>[
+    const csvRows = [headers, ...items.map(i => [
       i.title, i.provider, catMap[i.category_id]||'',
       i.payment_status, i.amount, i.date_added,
       i.publish_status||'unpublished', i.published_platforms||'',
@@ -334,19 +479,19 @@ app.get('/api/export', async (req, res) => {
       i.drive_link||'', i.notes||'', i.model_name||'',
       i.influencer_name||'', i.price||'', i.product_included||''
     ])];
-    const csv = csvRows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+    const csv = csvRows.map(r => r.map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
     res.setHeader('Content-Type','text/csv');
     res.setHeader('Content-Disposition',`attachment; filename="truyerba_${new Date().toISOString().slice(0,10)}.csv"`);
     res.send(csv);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── Catch-all ────────────────────────────────────────────────────────────────
+// ── Catch-all ─────────────────────────────────────────────────────────────────
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ── Start ────────────────────────────────────────────────────────────────────
+// ── Start ─────────────────────────────────────────────────────────────────────
 initDB()
   .then(() => app.listen(PORT, () => console.log(`Truyerba running on port ${PORT}`)))
   .catch(err => { console.error('DB init failed:', err); process.exit(1); });
