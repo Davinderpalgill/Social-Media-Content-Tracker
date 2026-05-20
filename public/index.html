@@ -1000,6 +1000,7 @@ async function saveInfluencerCollab(){
   var name = gv("inf_name");
   if(!name){ toast("Influencer name is required","error"); return; }
   var body = {
+    id: editingInfId || uid(),
     influencerName: name,
     handle: gv("inf_handle"),
     email: gv("inf_email"),
