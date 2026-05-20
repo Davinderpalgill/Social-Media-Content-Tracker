@@ -135,6 +135,34 @@ a{text-decoration:none;color:inherit;}button{cursor:pointer;border:none;backgrou
 .check-item{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-2);}
 .check-item i{color:var(--green-700);font-size:14px;}
 @media(max-width:768px){.sidebar{width:0;overflow:hidden;}.content-grid,.inf-grid,.pipeline-grid{grid-template-columns:1fr;}.charts-row{grid-template-columns:1fr;}.form-row,.form-row.triple{grid-template-columns:1fr;}}
+.dash-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+.dash-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap;padding:12px 16px;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);}
+.dash-toolbar-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-3);}
+.dash-search-wrap{position:relative;display:inline-flex;align-items:center;}
+.dash-search-wrap i{position:absolute;left:9px;color:var(--text-3);font-size:12px;pointer-events:none;}
+.dash-search-wrap input{padding:7px 10px 7px 28px;border-radius:6px;border:1.5px solid var(--border);font-size:12px;width:200px;outline:none;transition:border-color .15s;color:var(--text);}
+.dash-search-wrap input:focus{border-color:var(--green-700);}
+.cat-section{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:10px;overflow:hidden;}
+.cat-sec-header{display:flex;align-items:center;gap:12px;padding:13px 18px;cursor:pointer;user-select:none;transition:background .15s;}
+.cat-sec-header:hover{background:var(--green-50);}
+.cat-sec-icon{font-size:22px;flex-shrink:0;}
+.cat-sec-name{font-size:14px;font-weight:700;color:var(--text);flex:1;}
+.cat-sec-badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.cat-chevron{font-size:11px;color:var(--text-3);transition:transform .25s;flex-shrink:0;}
+.cat-chevron.closed{transform:rotate(-90deg);}
+.cat-sec-body{border-top:1px solid var(--border);}
+.data-table{width:100%;border-collapse:collapse;font-size:13px;}
+.data-table thead th{background:var(--bg);padding:9px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);border-bottom:1px solid var(--border);white-space:nowrap;}
+.data-table tbody td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text-2);vertical-align:middle;}
+.data-table tbody tr:last-child td{border-bottom:none;}
+.data-table tbody tr:hover td{background:var(--green-50);}
+.dt-title{font-weight:600;color:var(--text);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dt-provider{font-size:12px;color:var(--text-3);}
+.dt-amt{font-weight:700;color:var(--text);white-space:nowrap;}
+.dt-link{display:inline-flex;align-items:center;gap:5px;color:var(--green-700);font-weight:600;font-size:11px;text-decoration:none;padding:4px 10px;border-radius:5px;background:var(--green-100);transition:background .15s;white-space:nowrap;}
+.dt-link:hover{background:#b7d9b3;color:var(--green-900);}
+.dt-none{color:var(--text-3);font-size:12px;}
+@media(max-width:900px){.dash-kpi-grid{grid-template-columns:repeat(2,1fr);}}
 #loginOverlay{position:fixed;inset:0;background:linear-gradient(135deg,var(--green-800) 0%,#1a3a2a 100%);display:flex;align-items:center;justify-content:center;z-index:9999;}
 #loginOverlay.hidden{display:none;}
 .login-card{background:#fff;border-radius:16px;padding:40px;width:360px;box-shadow:0 20px 60px rgba(0,0,0,.35);}
@@ -531,7 +559,6 @@ function statCard(icon,label,value,sub){
          (sub?"<div class=\"stat-sub\">"+sub+"</div>":"")+"</div>";
 }
 
-var monthlyChart=null, donutChart=null;
 function renderDashboard(){
   var mc=document.getElementById("mainContent"); if(!mc) return;
   var total=DB.contents.length;
@@ -539,22 +566,139 @@ function renderDashboard(){
   var unpaid=DB.contents.filter(function(x){return x.paymentStatus!=="paid";}).length;
   var totalAmt=DB.contents.reduce(function(s,x){return s+(Number(x.amount)||0);},0);
   var paidAmt=DB.contents.filter(function(x){return x.paymentStatus==="paid";}).reduce(function(s,x){return s+(Number(x.amount)||0);},0);
+  var pendingAmt=totalAmt-paidAmt;
+  var published=DB.contents.filter(function(x){return x.publishStatus==="published";}).length;
+  var scheduled=DB.contents.filter(function(x){return x.publishStatus==="scheduled";}).length;
+  var unpublishedCnt=DB.contents.filter(function(x){return !x.publishStatus||x.publishStatus==="unpublished";}).length;
+
+  var catSections=DB.categories.map(function(cat){
+    var items=DB.contents.filter(function(x){return x.categoryId===cat.id;});
+    if(!items.length) return "";
+    var catAmt=items.reduce(function(s,x){return s+(Number(x.amount)||0);},0);
+    var catPaid=items.filter(function(x){return x.paymentStatus==="paid";}).length;
+    var catUnpaid=items.filter(function(x){return x.paymentStatus!=="paid";}).length;
+    var catPub=items.filter(function(x){return x.publishStatus==="published";}).length;
+    var rows=items.map(function(item){
+      var payBadge=item.paymentStatus==="paid"?"badge-green":item.paymentStatus==="partial"?"badge-amber":"badge-red";
+      var pubLabel=item.publishStatus==="published"?"Published":item.publishStatus==="scheduled"?"Scheduled":"Unpublished";
+      var pubBadge=item.publishStatus==="published"?"badge-green":item.publishStatus==="scheduled"?"badge-blue":"badge-gray";
+      var notesTip=item.notes?(" title=\""+escHtml(item.notes)+"\""):"";
+      var driveCell=item.driveLink
+        ?"<a href=\""+escHtml(item.driveLink)+"\" target=\"_blank\" class=\"dt-link\"><i class=\"fa-brands fa-google-drive\"></i> Drive</a>"
+        :"<span class=\"dt-none\">—</span>";
+      return "<tr class=\"dt-row\" data-title=\""+escHtml((item.title||"").toLowerCase())+"\" data-provider=\""+escHtml((item.provider||"").toLowerCase())+"\">"+
+        "<td><div class=\"dt-title\""+notesTip+" title=\""+escHtml(item.title)+"\">"+escHtml(item.title)+"</div>"+
+          (item.modelName?"<div style=\"font-size:11px;color:var(--text-3);\">Model: "+escHtml(item.modelName)+"</div>":"")+
+          (item.influencerName?"<div style=\"font-size:11px;color:var(--text-3);\">Influencer: "+escHtml(item.influencerName)+"</div>":"")+
+        "</td>"+
+        "<td class=\"dt-provider\">"+escHtml(item.provider||"—")+"</td>"+
+        "<td class=\"dt-amt\">"+( item.amount?fmtMoney(item.amount):"<span class=\"dt-none\">—</span>")+"</td>"+
+        "<td><span class=\"badge "+payBadge+"\">"+escHtml(item.paymentStatus||"unpaid")+"</span>"+
+          (item.datePaid?"<div style=\"font-size:10px;color:var(--text-3);margin-top:3px;\">"+fmtDate(item.datePaid)+"</div>":"")+
+        "</td>"+
+        "<td><span class=\"badge "+pubBadge+"\">"+pubLabel+"</span>"+
+          (item.scheduledDate&&item.publishStatus==="scheduled"?"<div style=\"font-size:10px;color:var(--text-3);margin-top:3px;\">"+fmtDate(item.scheduledDate)+"</div>":"")+
+          (item.publishedDate&&item.publishStatus==="published"?"<div style=\"font-size:10px;color:var(--text-3);margin-top:3px;\">"+fmtDate(item.publishedDate)+"</div>":"")+
+        "</td>"+
+        "<td>"+driveCell+"</td>"+
+        "<td style=\"font-size:12px;color:var(--text-3);white-space:nowrap;\">"+( item.dateAdded?fmtDate(item.dateAdded):"—")+"</td>"+
+        "<td><div style=\"display:flex;gap:4px;\">"+
+          "<button class=\"icon-btn\" onclick=\"openEditContent('"+item.id+"')\" title=\"Edit\"><i class=\"fa-solid fa-pen\"></i></button>"+
+          "<button class=\"icon-btn danger\" onclick=\"deleteContent('"+item.id+"')\" title=\"Delete\"><i class=\"fa-solid fa-trash\"></i></button>"+
+        "</div></td>"+
+      "</tr>";
+    }).join("");
+    return "<div class=\"cat-section\" id=\"catsec_"+cat.id+"\">"+
+      "<div class=\"cat-sec-header\" onclick=\"toggleCatSec('"+cat.id+"')\">"+
+        "<span class=\"cat-sec-icon\">"+cat.icon+"</span>"+
+        "<span class=\"cat-sec-name\">"+escHtml(cat.name)+"</span>"+
+        "<div class=\"cat-sec-badges\">"+
+          "<span class=\"badge badge-gray\">"+items.length+" post"+(items.length!==1?"s":"")+"</span>"+
+          "<span class=\"badge badge-green\">"+catPaid+" paid</span>"+
+          (catUnpaid?"<span class=\"badge badge-red\">"+catUnpaid+" unpaid</span>":"")+
+          (catPub?"<span class=\"badge badge-blue\">"+catPub+" published</span>":"")+
+          (catAmt?"<span class=\"badge badge-purple\">"+fmtMoney(catAmt)+"</span>":"")+
+        "</div>"+
+        "<i class=\"fa-solid fa-chevron-down cat-chevron\" id=\"chev_"+cat.id+"\"></i>"+
+      "</div>"+
+      "<div class=\"cat-sec-body\" id=\"catbody_"+cat.id+"\">"+
+        "<table class=\"data-table\"><thead><tr>"+
+          "<th>Title</th><th>Provider</th><th>Amount</th>"+
+          "<th>Payment</th><th>Publish</th><th>Drive Link</th>"+
+          "<th>Date Added</th><th></th>"+
+        "</tr></thead><tbody>"+rows+"</tbody></table>"+
+      "</div>"+
+    "</div>";
+  }).join("");
+
   mc.innerHTML=
-    "<div class=\"stats-grid\">"+
-    statCard("fa-solid fa-film","Total Posts",total,"")+
-    statCard("fa-solid fa-check-circle","Paid",paid,"")+
-    statCard("fa-solid fa-clock","Unpaid",unpaid,"")+
-    statCard("fa-solid fa-indian-rupee-sign","Total Amount",fmtMoney(totalAmt),"")+
-    statCard("fa-solid fa-receipt","Amount Paid",fmtMoney(paidAmt),"")+
-    statCard("fa-solid fa-layer-group","Categories",DB.categories.length,"")+
+    "<div class=\"dash-kpi-grid\">"+
+      statCard("fa-solid fa-film","Total Posts",total,"")+
+      statCard("fa-solid fa-circle-check","Paid",paid,fmtMoney(paidAmt)+" received")+
+      statCard("fa-solid fa-hourglass-half","Unpaid",unpaid,fmtMoney(pendingAmt)+" pending")+
+      statCard("fa-solid fa-indian-rupee-sign","Total Spent",fmtMoney(totalAmt),"")+
+      statCard("fa-solid fa-globe","Published",published,"")+
+      statCard("fa-solid fa-calendar-check","Scheduled",scheduled,"")+
+      statCard("fa-solid fa-eye-slash","Unpublished",unpublishedCnt,"")+
+      statCard("fa-solid fa-layer-group","Categories",DB.categories.length,"")+
     "</div>"+
-    "<div class=\"charts-row\"><div class=\"card\"><div class=\"card-header\"><span class=\"card-title\">Posts by Month</span></div><div class=\"card-body\"><div class=\"chart-wrap\"><canvas id=\"monthlyChart\"></canvas></div></div></div>"+
-    "<div class=\"card\"><div class=\"card-header\"><span class=\"card-title\">By Category</span></div><div class=\"card-body\"><div class=\"chart-wrap\"><canvas id=\"donutChart\"></canvas></div></div></div></div>"+
-    "<div class=\"card\"><div class=\"card-header\"><span class=\"card-title\">Recent Posts</span>"+
-    "<button class=\"btn btn-outline btn-sm\" style=\"margin-left:auto\" onclick=\"exportCSV()\"><i class=\"fa-solid fa-download\"></i> Export CSV</button></div><div class=\"card-body\"><div class=\"content-grid\">"+
-    (DB.contents.slice(0,6).map(cardHtml).join("")||emptyState("fa-solid fa-film","No posts yet","Add your first post"))+
-    "</div></div></div>";
-  requestAnimationFrame(function(){ drawMonthlyChart(); drawDonutChart(); });
+    "<div class=\"dash-toolbar\">"+
+      "<span class=\"dash-toolbar-title\">Posts by Category</span>"+
+      "<div style=\"display:flex;gap:8px;align-items:center;flex-wrap:wrap;\">"+
+        "<div class=\"dash-search-wrap\"><i class=\"fa-solid fa-magnifying-glass\"></i>"+
+        "<input id=\"dashSearch\" placeholder=\"Search posts...\" oninput=\"filterDashPosts()\"/></div>"+
+        "<button class=\"btn btn-outline btn-sm\" onclick=\"expandAllCats()\"><i class=\"fa-solid fa-angles-down\"></i> Expand All</button>"+
+        "<button class=\"btn btn-outline btn-sm\" onclick=\"collapseAllCats()\"><i class=\"fa-solid fa-angles-up\"></i> Collapse All</button>"+
+        "<button class=\"btn btn-outline btn-sm\" onclick=\"exportCSV()\"><i class=\"fa-solid fa-download\"></i> Export CSV</button>"+
+      "</div>"+
+    "</div>"+
+    "<div id=\"catSectionsWrap\">"+
+      (catSections||emptyState("fa-solid fa-film","No posts yet","Click \"Add Post\" to get started"))+
+    "</div>";
+}
+function toggleCatSec(id){
+  var body=document.getElementById("catbody_"+id);
+  var chev=document.getElementById("chev_"+id);
+  if(!body) return;
+  var isHidden=body.style.display==="none";
+  body.style.display=isHidden?"":"none";
+  if(chev) chev.classList.toggle("closed",!isHidden);
+}
+function expandAllCats(){
+  DB.categories.forEach(function(c){
+    var b=document.getElementById("catbody_"+c.id);
+    var ch=document.getElementById("chev_"+c.id);
+    if(b) b.style.display="";
+    if(ch) ch.classList.remove("closed");
+  });
+}
+function collapseAllCats(){
+  DB.categories.forEach(function(c){
+    var b=document.getElementById("catbody_"+c.id);
+    var ch=document.getElementById("chev_"+c.id);
+    if(b) b.style.display="none";
+    if(ch) ch.classList.add("closed");
+  });
+}
+function filterDashPosts(){
+  var q=((document.getElementById("dashSearch")||{}).value||"").toLowerCase().trim();
+  document.querySelectorAll(".dt-row").forEach(function(row){
+    var t=row.getAttribute("data-title")||"";
+    var p=row.getAttribute("data-provider")||"";
+    row.style.display=(!q||t.includes(q)||p.includes(q))?"":"none";
+  });
+  DB.categories.forEach(function(c){
+    var sec=document.getElementById("catsec_"+c.id);
+    var body=document.getElementById("catbody_"+c.id);
+    if(!sec) return;
+    if(q){
+      var visible=sec.querySelectorAll(".dt-row:not([style*='display: none'])").length;
+      sec.style.display=visible?"":"none";
+      if(body) body.style.display="";
+    } else {
+      sec.style.display="";
+    }
+  });
 }
 function drawMonthlyChart(){
   var canvas=document.getElementById("monthlyChart"); if(!canvas) return;
