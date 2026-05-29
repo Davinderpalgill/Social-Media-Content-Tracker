@@ -117,6 +117,8 @@ main{flex:1;overflow-y:auto;padding:24px;}
 .badge-paid{background:var(--green-100);color:var(--green-700);}
 .badge-unpaid{background:var(--red-light);color:var(--red);}
 .badge-pending{background:var(--amber-light);color:#92400E;}
+.badge-published{background:#dbeafe;color:#1d4ed8;}
+.badge-unpublished{background:#f3f4f6;color:#6b7280;}
 
 /* ── Empty State ── */
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;text-align:center;}
@@ -296,6 +298,15 @@ textarea{resize:vertical;min-height:80px;}
       </div>
       <div class="form-row">
         <div class="form-group">
+          <label>Publish Status</label>
+          <select id="fPublishStatus">
+            <option value="unpublished">Unpublished</option>
+            <option value="published">Published</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
           <label>Payment Status</label>
           <select id="fPayStatus">
             <option value="unpaid">Unpaid</option>
@@ -450,6 +461,7 @@ let currentCatId = null;
 let searchQuery = '';
 let filterProvider = '';
 let filterStatus = '';
+let filterPublish = '';
 
 // ══════════════════════════════════════════════════════
 //  UTILS
@@ -521,6 +533,11 @@ function badgeHtml(status){
   return map[status]||map.unpaid;
 }
 
+function publishBadgeHtml(status){
+  if(status==='published') return `<span class="badge badge-published"><i class="fa-solid fa-rocket"></i> Published</span>`;
+  return `<span class="badge badge-unpublished"><i class="fa-solid fa-eye-slash"></i> Unpublished</span>`;
+}
+
 // ══════════════════════════════════════════════════════
 //  CARD HTML
 // ══════════════════════════════════════════════════════
@@ -550,6 +567,7 @@ function cardHtml(item){
     <div class="card-preview">
       ${previewHtml}
       <span class="card-badge">${badgeHtml(item.paymentStatus)}</span>
+      <span class="card-badge" style="top:36px;">${publishBadgeHtml(item.publishStatus)}</span>
       <div class="preview-overlay">
         ${previewUrl?`<button class="btn btn-sm" onclick="event.stopPropagation();openPreview('${item.id}')"><i class="fa-solid fa-eye"></i> Preview</button>`:''}
       </div>
@@ -564,6 +582,7 @@ function cardHtml(item){
         <div class="card-actions">
           ${item.driveLink?`<a href="${item.driveLink}" target="_blank" class="icon-btn" onclick="event.stopPropagation()" title="Open Drive"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>`:''}
           ${item.paymentStatus!=='paid'?`<button class="icon-btn success" onclick="event.stopPropagation();markPaid('${item.id}')" title="Mark Paid"><i class="fa-solid fa-check"></i></button>`:''}
+          ${item.publishStatus!=='published'?`<button class="icon-btn" style="color:var(--blue-500,#3b82f6)" onclick="event.stopPropagation();markPublished('${item.id}')" title="Mark Published"><i class="fa-solid fa-rocket"></i></button>`:''}
           <button class="icon-btn" onclick="event.stopPropagation();openEditContent('${item.id}')" title="Edit"><i class="fa-solid fa-pen"></i></button>
           <button class="icon-btn danger" onclick="event.stopPropagation();deleteContent('${item.id}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
         </div>
@@ -578,7 +597,7 @@ function cardHtml(item){
 function showDashboard(el){
   currentView='dashboard'; currentCatId=null;
   setActiveNav(el||document.querySelector('.nav-item'));
-  filterProvider=''; filterStatus=''; searchQuery='';
+  filterProvider=''; filterStatus=''; filterPublish=''; searchQuery='';
   renderDashboard();
 }
 
@@ -650,7 +669,7 @@ function renderDashboard(){
 function showCategory(catId, el){
   currentView='category'; currentCatId=catId;
   setActiveNav(el || document.querySelector(`[data-cat="${catId}"]`));
-  filterProvider=''; filterStatus=''; searchQuery='';
+  filterProvider=''; filterStatus=''; filterPublish=''; searchQuery='';
   renderCategory();
 }
 
@@ -662,6 +681,7 @@ function renderCategory(){
   // Apply filters
   if(filterProvider) items = items.filter(i=>i.provider===filterProvider);
   if(filterStatus)   items = items.filter(i=>i.paymentStatus===filterStatus);
+  if(filterPublish)  items = items.filter(i=>(i.publishStatus||'unpublished')===filterPublish);
   if(searchQuery)    items = items.filter(i=>
     i.title.toLowerCase().includes(searchQuery)||
     i.provider.toLowerCase().includes(searchQuery)||
@@ -698,6 +718,10 @@ function renderCategory(){
     <span class="filter-tag ${filterStatus==='paid'?'active':''}" onclick="setFilterStatus('paid')"><i class="fa-solid fa-check"></i> Paid</span>
     <span class="filter-tag ${filterStatus==='unpaid'?'active':''}" onclick="setFilterStatus('unpaid')"><i class="fa-solid fa-clock"></i> Unpaid</span>
     <span class="filter-tag ${filterStatus==='pending'?'active':''}" onclick="setFilterStatus('pending')"><i class="fa-solid fa-hourglass-half"></i> Pending</span>
+    <span style="margin:0 4px;color:var(--text-3)">|</span>
+    <span class="filter-tag ${filterPublish==='published'?'active':''}" onclick="setFilterPublish('published')"><i class="fa-solid fa-rocket"></i> Published</span>
+    <span class="filter-tag ${filterPublish==='unpublished'?'active':''}" onclick="setFilterPublish('unpublished')"><i class="fa-solid fa-eye-slash"></i> Unpublished</span>
+    ${filterPublish?`<span class="filter-tag" onclick="setFilterPublish('')">✕ Clear</span>`:''}
     ${!cat.isDefault?`<button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="deleteCategory('${cat.id}')"><i class="fa-solid fa-trash"></i> Delete Category</button>`:''}
   </div>
 
@@ -714,7 +738,7 @@ function renderCategory(){
 function showAllContent(el){
   currentView='all'; currentCatId=null;
   setActiveNav(el);
-  filterProvider=''; filterStatus=''; searchQuery='';
+  filterProvider=''; filterStatus=''; filterPublish=''; searchQuery='';
   renderAllContent();
 }
 
@@ -722,6 +746,7 @@ function renderAllContent(){
   let items = [...DB.contents];
   if(filterProvider) items = items.filter(i=>i.provider===filterProvider);
   if(filterStatus)   items = items.filter(i=>i.paymentStatus===filterStatus);
+  if(filterPublish)  items = items.filter(i=>(i.publishStatus||'unpublished')===filterPublish);
   if(searchQuery)    items = items.filter(i=>
     (i.title||'').toLowerCase().includes(searchQuery)||
     (i.provider||'').toLowerCase().includes(searchQuery)
@@ -743,6 +768,10 @@ function renderAllContent(){
     <span class="filter-tag ${filterStatus==='paid'?'active':''}" onclick="setFilterStatus('paid')">Paid</span>
     <span class="filter-tag ${filterStatus==='unpaid'?'active':''}" onclick="setFilterStatus('unpaid')">Unpaid</span>
     <span class="filter-tag ${filterStatus==='pending'?'active':''}" onclick="setFilterStatus('pending')">Pending</span>
+    <span style="margin:0 4px;color:var(--text-3)">|</span>
+    <span class="filter-tag ${filterPublish==='published'?'active':''}" onclick="setFilterPublish('published')"><i class="fa-solid fa-rocket"></i> Published</span>
+    <span class="filter-tag ${filterPublish==='unpublished'?'active':''}" onclick="setFilterPublish('unpublished')"><i class="fa-solid fa-eye-slash"></i> Unpublished</span>
+    ${filterPublish?`<span class="filter-tag" onclick="setFilterPublish('')">✕ Clear</span>`:''}
   </div>
   ${items.length===0?`<div class="empty"><div class="empty-icon">📭</div><h3>No content found</h3><p>Try adjusting your filters or add new content.</p></div>`:
   `<div class="content-grid">${items.map(cardHtml).join('')}</div>`}`;
@@ -786,6 +815,7 @@ function showProviders(el){
 // ══════════════════════════════════════════════════════
 function setFilterProvider(v){ filterProvider=v; rerender(); }
 function setFilterStatus(v){ filterStatus=v; rerender(); }
+function setFilterPublish(v){ filterPublish=v; rerender(); }
 function rerender(){
   if(currentView==='category') renderCategory();
   else if(currentView==='all') renderAllContent();
@@ -822,6 +852,7 @@ function openAddContent(catId){
   document.getElementById('fDriveLink').value='';
   document.getElementById('fThumb').value='';
   document.getElementById('fPayStatus').value='unpaid';
+  document.getElementById('fPublishStatus').value='unpublished';
   document.getElementById('fAmount').value='';
   document.getElementById('fDate').value=new Date().toISOString().slice(0,10);
   document.getElementById('fNotes').value='';
@@ -843,6 +874,7 @@ function openEditContent(id){
   document.getElementById('fDriveLink').value=item.driveLink||'';
   document.getElementById('fThumb').value=item.thumbnailUrl||'';
   document.getElementById('fPayStatus').value=item.paymentStatus||'unpaid';
+  document.getElementById('fPublishStatus').value=item.publishStatus||'unpublished';
   document.getElementById('fAmount').value=item.amount||'';
   document.getElementById('fDate').value=item.dateAdded||'';
   document.getElementById('fNotes').value=item.notes||'';
@@ -870,6 +902,7 @@ function saveContent(){
     driveLink: document.getElementById('fDriveLink').value.trim(),
     thumbnailUrl: document.getElementById('fThumb').value.trim(),
     paymentStatus: document.getElementById('fPayStatus').value,
+    publishStatus: document.getElementById('fPublishStatus').value,
     amount: document.getElementById('fAmount').value||0,
     dateAdded: document.getElementById('fDate').value,
     notes: document.getElementById('fNotes').value.trim(),
@@ -947,6 +980,17 @@ function markPaid(id){
   renderSidebar();
   rerender();
   toast('Marked as paid ✓');
+}
+
+function markPublished(id){
+  const item = DB.contents.find(c=>c.id===id);
+  if(!item) return;
+  item.publishStatus='published';
+  item.datePublished=new Date().toISOString();
+  saveData(DB);
+  renderSidebar();
+  rerender();
+  toast('Marked as published 🚀');
 }
 
 function deleteContent(id){
