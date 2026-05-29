@@ -1,9 +1,43 @@
 const express = require('express');
 const path    = require('path');
+const crypto  = require('crypto');
 const { Pool } = require('pg');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+// Set APP_USER / APP_PASS env vars to change credentials (defaults shown below).
+const APP_USER   = process.env.APP_USER || 'admin';
+const APP_PASS   = process.env.APP_PASS || 'truyerba123';
+const SESSION_MS = 8 * 60 * 60 * 1000; // 8 hours
+const sessions   = new Map(); // token -> expiry
+
+function hashPass(p) { return crypto.createHash('sha256').update(p).digest('hex'); }
+function newSession() {
+  const t = crypto.randomBytes(32).toString('hex');
+  sessions.set(t, Date.now() + SESSION_MS);
+  return t;
+}
+function getSessionToken(req) {
+  const m = (req.headers.cookie || '').match(/session=([a-f0-9]+)/);
+  return m ? m[1] : null;
+}
+function validSession(req) {
+  const t = getSessionToken(req);
+  if (!t) return false;
+  const exp = sessions.get(t);
+  if (!exp || Date.now() > exp) { sessions.delete(t); return false; }
+  return true;
+}
+
+// Auth guard — applied to all /api/ routes except /api/login and /api/logout
+function authGuard(req, res, next) {
+  if (!req.path.startsWith('/api/')) return next();
+  if (req.path === '/api/login' || req.path === '/api/logout') return next();
+  if (!validSession(req)) return res.status(401).json({ error: 'Unauthorized' });
+  next();
+}
 
 // ── Database ──────────────────────────────────────────────────────────────────
 const pool = new Pool({
@@ -146,6 +180,7 @@ async function initDB() {
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(authGuard);
 
 // ── Mappers ───────────────────────────────────────────────────────────────────
 function mapCat(r) {
@@ -202,6 +237,24 @@ function mapInfluencerCollab(r) {
     createdAt: r.created_at, updatedAt: r.updated_at,
   };
 }
+
+// ── API: Login / Logout ───────────────────────────────────────────────────────
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body || {};
+  if (username === APP_USER && hashPass(password) === hashPass(APP_PASS)) {
+    const token = newSession();
+    res.setHeader('Set-Cookie', `session=${token}; HttpOnly; Path=/; Max-Age=${SESSION_MS / 1000}; SameSite=Strict`);
+    return res.json({ ok: true });
+  }
+  res.status(401).json({ error: 'Invalid username or password' });
+});
+
+app.post('/api/logout', (req, res) => {
+  const t = getSessionToken(req);
+  if (t) sessions.delete(t);
+  res.setHeader('Set-Cookie', 'session=; HttpOnly; Path=/; Max-Age=0');
+  res.json({ ok: true });
+});
 
 // ── API: Categories ───────────────────────────────────────────────────────────
 app.get('/api/categories', async (req, res) => {
