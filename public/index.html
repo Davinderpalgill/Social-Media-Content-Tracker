@@ -165,7 +165,7 @@ a{text-decoration:none;color:inherit;}button{cursor:pointer;border:none;backgrou
 .dt-link:hover{background:#b7d9b3;color:var(--green-900);}
 .dt-none{color:var(--text-3);font-size:12px;}
 @media(max-width:900px){.dash-kpi-grid{grid-template-columns:repeat(2,1fr);}}
-#loginOverlay{position:fixed;inset:0;background:linear-gradient(135deg,var(--green-800) 0%,#1a3a2a 100%);display:flex;align-items:center;justify-content:center;z-index:9999;}
+#loginOverlay{position:fixed;inset:0;background:#1a3a2a;background:linear-gradient(135deg,var(--green-800,#14532d) 0%,#1a3a2a 100%);display:flex;align-items:center;justify-content:center;z-index:9999;}
 #loginOverlay.hidden{display:none;}
 .login-card{background:#fff;border-radius:16px;padding:40px;width:360px;box-shadow:0 20px 60px rgba(0,0,0,.35);}
 .login-logo-wrap{display:flex;justify-content:center;margin-bottom:24px;}
@@ -366,6 +366,12 @@ body.dark .inf-video-form{background:var(--card);border-color:var(--border);}
         <div class="form-group"><label>Payment Status</label>
           <select id="cm_payStatus"><option value="unpaid">Unpaid</option><option value="partial">Partial</option><option value="paid">Paid</option></select>
         </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Publish Status</label>
+          <select id="cm_publishStatus"><option value="unpublished">Unpublished</option><option value="published">Published</option></select>
+        </div>
+        <div class="form-group"><label>Published Date</label><input id="cm_publishedDate" type="date"/></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>Amount (INR)</label><input id="cm_amount" type="number" placeholder="0"/></div>
@@ -648,7 +654,10 @@ async function refreshData(){
     DB.teamMembers=team||[]; DB.teamPayments=tpay||[];
     DB.growthSnapshots=growth||[]; DB.products=products||[]; DB.adSpend=adspend||[];
     renderSidebar(); rerender(); renderNotifBell();
-  }catch(e){ if(!e.status) toast("Failed to load: "+e.message,"error"); }
+  }catch(e){
+    if(e.status===401){ setSyncing(false); throw e; }
+    toast("Failed to load: "+e.message,"error");
+  }
   finally{ setSyncing(false); }
 }
 
@@ -1094,6 +1103,8 @@ function openAddContent(){
   document.getElementById("contentModalTitle").textContent="Add Post";
   ["cm_title","cm_provider","cm_amount","cm_driveLink","cm_thumbnail","cm_model","cm_influencer","cm_price","cm_product","cm_notes","cm_dateAdded"].forEach(function(id){setVal(id,"");});
   setVal("cm_payStatus","unpaid");
+  setVal("cm_publishStatus","unpublished");
+  setVal("cm_publishedDate","");
   populateCatSelect("cm_category",null);
   openModal("contentModal");
 }
@@ -1103,6 +1114,8 @@ function openEditContent(id){
   document.getElementById("contentModalTitle").textContent="Edit Post";
   setVal("cm_title",item.title); setVal("cm_provider",item.provider);
   setVal("cm_amount",item.amount); setVal("cm_payStatus",item.paymentStatus);
+  setVal("cm_publishStatus",item.publishStatus||"unpublished");
+  setVal("cm_publishedDate",item.publishedDate?item.publishedDate.split("T")[0]:"");
   setVal("cm_driveLink",item.driveLink); setVal("cm_thumbnail",item.thumbnailUrl);
   setVal("cm_model",item.modelName); setVal("cm_influencer",item.influencerName);
   setVal("cm_price",item.price); setVal("cm_product",item.productIncluded);
@@ -1116,6 +1129,8 @@ async function saveContent(){
   var body={id:editingContentId||uid(),categoryId:gv("cm_category")||null,title:title,
     provider:gv("cm_provider"),driveLink:gv("cm_driveLink")||null,thumbnailUrl:gv("cm_thumbnail")||null,
     paymentStatus:gv("cm_payStatus")||"unpaid",amount:gv("cm_amount")?Number(gv("cm_amount")):0,
+    publishStatus:gv("cm_publishStatus")||"unpublished",
+    publishedDate:gv("cm_publishedDate")||null,
     dateAdded:gv("cm_dateAdded")||null,notes:gv("cm_notes")||null,
     modelName:gv("cm_model")||null,influencerName:gv("cm_influencer")||null,
     price:gv("cm_price")?Number(gv("cm_price")):null,productIncluded:gv("cm_product")||null};
