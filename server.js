@@ -164,6 +164,44 @@ async function initDB() {
       ADD COLUMN IF NOT EXISTS scheduled_date      DATE;
   `);
 
+  // ── Migrate: add content_plans table ────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS content_plans (
+      id                  VARCHAR(60)   PRIMARY KEY,
+      title               VARCHAR(255)  NOT NULL,
+      content_type        VARCHAR(50)   DEFAULT 'other',
+      description         TEXT,
+      creator             VARCHAR(255),
+      linked_post_id      VARCHAR(60),
+      -- Instagram
+      ig_status           VARCHAR(20)   DEFAULT 'draft',
+      ig_scheduled        DATE,
+      ig_published        DATE,
+      ig_link             TEXT,
+      ig_notes            TEXT,
+      -- Blog
+      blog_status         VARCHAR(20)   DEFAULT 'draft',
+      blog_scheduled      DATE,
+      blog_published      DATE,
+      blog_link           TEXT,
+      blog_notes          TEXT,
+      -- LinkedIn
+      li_status           VARCHAR(20)   DEFAULT 'draft',
+      li_scheduled        DATE,
+      li_published        DATE,
+      li_link             TEXT,
+      li_notes            TEXT,
+      -- YouTube
+      yt_status           VARCHAR(20)   DEFAULT 'draft',
+      yt_scheduled        DATE,
+      yt_published        DATE,
+      yt_link             TEXT,
+      yt_notes            TEXT,
+      created_at          TIMESTAMPTZ   DEFAULT NOW(),
+      updated_at          TIMESTAMPTZ   DEFAULT NOW()
+    );
+  `);
+
   // Seed default categories only on first run
   const { rows } = await pool.query('SELECT COUNT(*) FROM categories');
   if (parseInt(rows[0].count) === 0) {
@@ -510,6 +548,75 @@ app.put('/api/influencer-collabs/:id', async (req, res) => {
 app.delete('/api/influencer-collabs/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM influencer_collabs WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: Content Plans ────────────────────────────────────────────────────────
+function mapPlan(r) {
+  return {
+    id: r.id, title: r.title, contentType: r.content_type,
+    description: r.description, creator: r.creator, linkedPostId: r.linked_post_id,
+    instagram: { status: r.ig_status, scheduled: r.ig_scheduled, published: r.ig_published, link: r.ig_link, notes: r.ig_notes },
+    blog:      { status: r.blog_status, scheduled: r.blog_scheduled, published: r.blog_published, link: r.blog_link, notes: r.blog_notes },
+    linkedin:  { status: r.li_status, scheduled: r.li_scheduled, published: r.li_published, link: r.li_link, notes: r.li_notes },
+    youtube:   { status: r.yt_status, scheduled: r.yt_scheduled, published: r.yt_published, link: r.yt_link, notes: r.yt_notes },
+    createdAt: r.created_at, updatedAt: r.updated_at,
+  };
+}
+app.get('/api/content-plans', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM content_plans ORDER BY created_at DESC');
+    res.json(rows.map(mapPlan));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/content-plans', async (req, res) => {
+  try {
+    const p = req.body;
+    const ig = p.instagram||{}, bl = p.blog||{}, li = p.linkedin||{}, yt = p.youtube||{};
+    await pool.query(
+      `INSERT INTO content_plans
+         (id,title,content_type,description,creator,linked_post_id,
+          ig_status,ig_scheduled,ig_published,ig_link,ig_notes,
+          blog_status,blog_scheduled,blog_published,blog_link,blog_notes,
+          li_status,li_scheduled,li_published,li_link,li_notes,
+          yt_status,yt_scheduled,yt_published,yt_link,yt_notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
+      [p.id, p.title, p.contentType||'other', p.description||null, p.creator||null, p.linkedPostId||null,
+       ig.status||'draft', ig.scheduled||null, ig.published||null, ig.link||null, ig.notes||null,
+       bl.status||'draft', bl.scheduled||null, bl.published||null, bl.link||null, bl.notes||null,
+       li.status||'draft', li.scheduled||null, li.published||null, li.link||null, li.notes||null,
+       yt.status||'draft', yt.scheduled||null, yt.published||null, yt.link||null, yt.notes||null]
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/content-plans/:id', async (req, res) => {
+  try {
+    const p = req.body;
+    const ig = p.instagram||{}, bl = p.blog||{}, li = p.linkedin||{}, yt = p.youtube||{};
+    await pool.query(
+      `UPDATE content_plans SET
+         title=$1,content_type=$2,description=$3,creator=$4,linked_post_id=$5,
+         ig_status=$6,ig_scheduled=$7,ig_published=$8,ig_link=$9,ig_notes=$10,
+         blog_status=$11,blog_scheduled=$12,blog_published=$13,blog_link=$14,blog_notes=$15,
+         li_status=$16,li_scheduled=$17,li_published=$18,li_link=$19,li_notes=$20,
+         yt_status=$21,yt_scheduled=$22,yt_published=$23,yt_link=$24,yt_notes=$25,
+         updated_at=NOW()
+       WHERE id=$26`,
+      [p.title, p.contentType||'other', p.description||null, p.creator||null, p.linkedPostId||null,
+       ig.status||'draft', ig.scheduled||null, ig.published||null, ig.link||null, ig.notes||null,
+       bl.status||'draft', bl.scheduled||null, bl.published||null, bl.link||null, bl.notes||null,
+       li.status||'draft', li.scheduled||null, li.published||null, li.link||null, li.notes||null,
+       yt.status||'draft', yt.scheduled||null, yt.published||null, yt.link||null, yt.notes||null,
+       req.params.id]
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/content-plans/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM content_plans WHERE id=$1', [req.params.id]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
