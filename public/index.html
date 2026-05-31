@@ -63,6 +63,12 @@ a{text-decoration:none;color:inherit;}button{cursor:pointer;border:none;backgrou
 .badge-amber{background:var(--amber-light);color:#92400e;}.badge-red{background:var(--red-light);color:#991b1b;}
 .badge-blue{background:#dbeafe;color:#1e40af;}.badge-gray{background:#f1f5f9;color:#64748b;}
 .badge-purple{background:#ede9fe;color:#5b21b6;}.badge-pink{background:#fce7f3;color:#9d174d;}
+.dash-filter-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--card);color:var(--text-2);transition:.12s;}
+.dash-filter-tag:hover{border-color:var(--green-700);color:var(--green-700);}
+.dash-filter-tag.active{background:var(--green-700);color:#fff;border-color:var(--green-700);}
+.dash-filter-tag.active-red{background:#dc2626;color:#fff;border-color:#dc2626;}
+.dash-filter-tag.active-amber{background:#d97706;color:#fff;border-color:#d97706;}
+.dash-filter-tag.active-blue{background:#2563eb;color:#fff;border-color:#2563eb;}
 .card-badges{display:flex;flex-wrap:wrap;gap:5px;}
 .card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:4px;}
 .card-date{font-size:11px;color:var(--text-3);}.card-actions{display:flex;gap:6px;}
@@ -590,6 +596,7 @@ var monthlyChart=null, donutChart=null;
 var currentView = "dashboard", currentCatId = null;
 var batchSelectedIds = new Set();
 var dashDateFrom = "", dashDateTo = "";
+var dashPayFilter = "", dashPubFilter = "";
 var goalsData = (function(){ try{ return JSON.parse(localStorage.getItem("goals")||"{}"); }catch(e){ return {}; } })();
 var editingInfVideoCollabId = null;
 var infVideosTemp = [];
@@ -809,6 +816,8 @@ function renderDashboard(){
       if(x.categoryId!==cat.id) return false;
       if(dashDateFrom&&x.dateAdded&&x.dateAdded<dashDateFrom) return false;
       if(dashDateTo&&x.dateAdded&&x.dateAdded>dashDateTo) return false;
+      if(dashPayFilter&&(x.paymentStatus||"unpaid")!==dashPayFilter) return false;
+      if(dashPubFilter&&(x.publishStatus||"unpublished")!==dashPubFilter) return false;
       return true;
     });
     if(!items.length) return "";
@@ -825,7 +834,7 @@ function renderDashboard(){
         ?"<a href=\""+escHtml(item.driveLink)+"\" target=\"_blank\" class=\"dt-link\"><i class=\"fa-brands fa-google-drive\"></i> Drive</a>"
         :"<span class=\"dt-none\">—</span>";
       var rowAgingDays=(item.paymentStatus!=="paid"&&item.dateAdded)?Math.floor((Date.now()-new Date(item.dateAdded))/86400000):0;
-      return "<tr class=\"dt-row\" data-title=\""+escHtml((item.title||"").toLowerCase())+"\" data-provider=\""+escHtml((item.provider||"").toLowerCase())+"\">"+
+      return "<tr class=\"dt-row\" data-title=\""+escHtml((item.title||"").toLowerCase())+"\" data-provider=\""+escHtml((item.provider||"").toLowerCase())+"\" data-pay=\""+(item.paymentStatus||"unpaid")+"\" data-pub=\""+(item.publishStatus||"unpublished")+"\">"+
         "<td><input type=\"checkbox\" class=\"batch-cb\" id=\"batchcb_"+item.id+"\" onchange=\"toggleBatchSelect('"+item.id+"',this.checked)\"/></td>"+
         "<td><div class=\"dt-title\""+notesTip+" title=\""+escHtml(item.title)+"\">"+escHtml(item.title)+"</div>"+
           (item.modelName?"<div style=\"font-size:11px;color:var(--text-3);\">Model: "+escHtml(item.modelName)+"</div>":"")+
@@ -944,8 +953,17 @@ function renderDashboard(){
         "<span style=\"font-size:12px;color:var(--text-3);\">to</span>"+
         "<input type=\"date\" id=\"dateTo\" value=\""+dashDateTo+"\" onchange=\"applyDateFilter()\" title=\"To\" style=\"padding:5px 8px;border-radius:6px;border:1.5px solid var(--border);font-size:12px;color:var(--text);background:var(--card);\"/>"+
         ((dashDateFrom||dashDateTo)?"<button class=\"btn btn-outline btn-sm\" onclick=\"clearDateFilter()\" title=\"Clear date filter\"><i class=\"fa-solid fa-xmark\"></i></button>":"")+
+        "<span class=\"dash-filter-tag"+(dashPayFilter===""?" active":"")+"\" onclick=\"setDashPayFilter('')\">All</span>"+
+        "<span class=\"dash-filter-tag"+(dashPayFilter==="paid"?" active":"")+"\" onclick=\"setDashPayFilter('paid')\"><i class=\"fa-solid fa-circle-check\"></i> Paid</span>"+
+        "<span class=\"dash-filter-tag"+(dashPayFilter==="partial"?" active-amber":"")+"\" onclick=\"setDashPayFilter('partial')\"><i class=\"fa-solid fa-circle-half-stroke\"></i> Partial</span>"+
+        "<span class=\"dash-filter-tag"+(dashPayFilter==="unpaid"?" active-red":"")+"\" onclick=\"setDashPayFilter('unpaid')\"><i class=\"fa-solid fa-circle-xmark\"></i> Unpaid</span>"+
+        "<span style=\"width:1px;background:var(--border);height:20px;margin:0 2px;\"></span>"+
+        "<span class=\"dash-filter-tag"+(dashPubFilter===""?" active":"")+"\" onclick=\"setDashPubFilter('')\">All</span>"+
+        "<span class=\"dash-filter-tag"+(dashPubFilter==="published"?" active":"")+"\" onclick=\"setDashPubFilter('published')\"><i class=\"fa-solid fa-rocket\"></i> Published</span>"+
+        "<span class=\"dash-filter-tag"+(dashPubFilter==="unpublished"?" active-blue":"")+"\" onclick=\"setDashPubFilter('unpublished')\"><i class=\"fa-solid fa-eye-slash\"></i> Unpublished</span>"+
+        "<span class=\"dash-filter-tag"+(dashPubFilter==="scheduled"?" active-blue":"")+"\" onclick=\"setDashPubFilter('scheduled')\"><i class=\"fa-solid fa-calendar\"></i> Scheduled</span>"+
         "<div class=\"dash-search-wrap\"><i class=\"fa-solid fa-magnifying-glass\"></i>"+
-        "<input id=\"dashSearch\" placeholder=\"Search posts...\" oninput=\"filterDashPosts()\"/></div>"+
+        "<input id=\"dashSearch\" placeholder=\"Search posts...\" oninput=\"applyDashFilters()\"/></div>"+
         "<button class=\"btn btn-outline btn-sm\" onclick=\"expandAllCats()\" title=\"Expand all\"><i class=\"fa-solid fa-angles-down\"></i></button>"+
         "<button class=\"btn btn-outline btn-sm\" onclick=\"collapseAllCats()\" title=\"Collapse all\"><i class=\"fa-solid fa-angles-up\"></i></button>"+
         "<button class=\"btn btn-outline btn-sm\" onclick=\"exportCSV()\"><i class=\"fa-solid fa-download\"></i> Export</button>"+
@@ -989,18 +1007,27 @@ function collapseAllCats(){
     if(ch) ch.classList.add("closed");
   });
 }
-function filterDashPosts(){
+function filterDashPosts(){ applyDashFilters(); }
+function setDashPayFilter(v){ dashPayFilter=v; rerender(); }
+function setDashPubFilter(v){ dashPubFilter=v; rerender(); }
+function applyDashFilters(){
   var q=((document.getElementById("dashSearch")||{}).value||"").toLowerCase().trim();
+  var hasFilter=q||dashPayFilter||dashPubFilter;
   document.querySelectorAll(".dt-row").forEach(function(row){
     var t=row.getAttribute("data-title")||"";
     var p=row.getAttribute("data-provider")||"";
-    row.style.display=(!q||t.includes(q)||p.includes(q))?"":"none";
+    var pay=row.getAttribute("data-pay")||"unpaid";
+    var pub=row.getAttribute("data-pub")||"unpublished";
+    var matchQ=!q||t.includes(q)||p.includes(q);
+    var matchPay=!dashPayFilter||pay===dashPayFilter;
+    var matchPub=!dashPubFilter||pub===dashPubFilter;
+    row.style.display=(matchQ&&matchPay&&matchPub)?"":"none";
   });
   DB.categories.forEach(function(c){
     var sec=document.getElementById("catsec_"+c.id);
     var body=document.getElementById("catbody_"+c.id);
     if(!sec) return;
-    if(q){
+    if(hasFilter){
       var visible=sec.querySelectorAll(".dt-row:not([style*='display: none'])").length;
       sec.style.display=visible?"":"none";
       if(body) body.style.display="";
