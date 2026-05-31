@@ -257,6 +257,36 @@ body.dark .inf-video-form{background:var(--card);border-color:var(--border);}
 .cal-event.ev-published{background:var(--green-100);color:#14532d;}
 .cal-event.ev-scheduled{background:#dbeafe;color:#1e40af;}
 .cal-event.ev-unpublished{background:#f1f5f9;color:#64748b;}
+/* ── Social Media Calendar ── */
+.sc-wrap{overflow-x:auto;}
+.sc-table{width:100%;border-collapse:collapse;min-width:900px;}
+.sc-table th{background:var(--bg);font-size:11px;font-weight:700;color:var(--text-3);text-align:center;padding:6px 4px;border:1px solid var(--border);white-space:nowrap;}
+.sc-table td{border:1px solid var(--border);vertical-align:top;padding:4px;min-width:36px;min-height:52px;}
+.sc-table td.today-col{background:rgba(58,125,53,.06);}
+.sc-platform-label{display:flex;align-items:center;gap:6px;padding:6px 10px;font-size:12px;font-weight:700;white-space:nowrap;border:1px solid var(--border);background:var(--card);}
+.sc-cell{min-height:44px;position:relative;}
+.sc-card{border-radius:5px;padding:3px 6px;font-size:11px;font-weight:600;margin-bottom:3px;cursor:pointer;line-height:1.3;display:flex;align-items:flex-start;gap:4px;transition:.1s;}
+.sc-card:hover{filter:brightness(.94);}
+.sc-card.sc-draft{background:#f1f5f9;color:#475569;}
+.sc-card.sc-scheduled{background:#dbeafe;color:#1e40af;}
+.sc-card.sc-published{background:#dcfce7;color:#14532d;}
+.sc-add-btn{position:absolute;bottom:2px;right:2px;width:18px;height:18px;border-radius:4px;background:transparent;border:1px dashed var(--border);color:var(--text-3);font-size:11px;display:none;align-items:center;justify-content:center;cursor:pointer;line-height:1;}
+.sc-table td:hover .sc-add-btn{display:flex;}
+.sc-type-badge{font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;background:rgba(0,0,0,.08);flex-shrink:0;}
+.sc-legend{display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;}
+.sc-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;}
+.sc-legend-dot{width:10px;height:10px;border-radius:3px;}
+/* Detail panel */
+.sc-detail-panel{position:fixed;right:0;top:0;height:100%;width:380px;background:var(--card);border-left:1px solid var(--border);box-shadow:-4px 0 20px rgba(0,0,0,.1);z-index:500;overflow-y:auto;transform:translateX(100%);transition:transform .22s;}
+.sc-detail-panel.open{transform:translateX(0);}
+.sc-panel-header{padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.sc-platform-row{border-radius:8px;border:1px solid var(--border);margin-bottom:10px;overflow:hidden;}
+.sc-platform-row-header{display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:12px;font-weight:700;}
+.sc-platform-row-body{padding:10px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;}
+.sc-status-btn{padding:4px 12px;border-radius:12px;font-size:11px;font-weight:700;border:1.5px solid transparent;cursor:pointer;transition:.12s;}
+.sc-status-btn.sel-draft{background:#f1f5f9;color:#475569;border-color:#94a3b8;}
+.sc-status-btn.sel-scheduled{background:#dbeafe;color:#1e40af;border-color:#93c5fd;}
+.sc-status-btn.sel-published{background:#dcfce7;color:#14532d;border-color:#86efac;}
 .team-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:18px;display:flex;flex-direction:column;gap:8px;}
 .team-avatar{width:44px;height:44px;border-radius:50%;background:var(--green-100);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:var(--green-700);flex-shrink:0;}
 .growth-platform-tab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--card);color:var(--text-2);transition:all .15s;}
@@ -326,6 +356,9 @@ body.dark .inf-video-form{background:var(--card);border-color:var(--border);}
   </div>
   <div class="nav-item" id="nav-calendar" data-view="calendar" onclick="setView(this.dataset.view)">
     <i class="fa-solid fa-calendar-days"></i> Content Calendar
+  </div>
+  <div class="nav-item" id="nav-socialcal" data-view="socialcal" onclick="setView(this.dataset.view)">
+    <i class="fa-solid fa-share-nodes"></i> Social Media Calendar
   </div>
   <div class="sidebar-section-label">Analytics</div>
   <div class="nav-item" id="nav-performance" data-view="performance" onclick="setView(this.dataset.view)">
@@ -591,6 +624,8 @@ body.dark .inf-video-form{background:var(--card);border-color:var(--border);}
 <script>
 var DB = { categories: [], contents: [], investors: [], influencerCollabs: [], campaigns: [], performanceMetrics: [], budgetPlans: [], manualSpend: [], teamMembers: [], teamPayments: [], growthSnapshots: [], products: [], adSpend: [] };
 var calMonth = new Date().getMonth(), calYear = new Date().getFullYear();
+var scMonth = new Date().getMonth(), scYear = new Date().getFullYear();
+var editingPlanId = null, scDetailPlan = null;
 var growthChart = null;
 var monthlyChart=null, donutChart=null;
 var currentView = "dashboard", currentCatId = null;
@@ -654,12 +689,14 @@ async function refreshData(){
     var growth=await api("GET","/api/growth-snapshots").catch(function(){return [];});
     var products=await api("GET","/api/products").catch(function(){return [];});
     var adspend=await api("GET","/api/ad-spend").catch(function(){return [];});
+    var contentPlans=await api("GET","/api/content-plans").catch(function(){return [];});
     DB.categories=cats||[]; DB.contents=contents||[];
     DB.investors=investors||[]; DB.influencerCollabs=collabs||[];
     DB.campaigns=campaigns||[]; DB.performanceMetrics=perf||[];
     DB.budgetPlans=budgets||[]; DB.manualSpend=mspend||[];
     DB.teamMembers=team||[]; DB.teamPayments=tpay||[];
     DB.growthSnapshots=growth||[]; DB.products=products||[]; DB.adSpend=adspend||[];
+    DB.contentPlans=contentPlans||[];
     renderSidebar(); rerender(); renderNotifBell();
   }catch(e){
     if(e.status===401){ setSyncing(false); throw e; }
@@ -693,7 +730,7 @@ function renderSidebar(){
            "<i class=\"fa-solid fa-folder\"></i> "+escHtml(c.name)+
            "<span class=\"nav-badge\">"+cnt+"</span></div>";
   }).join("");
-  ["dashboard","investors","influencers","all","providers","campaigns","budget","calendar","performance","adspend","growth","team","products"].forEach(function(v){
+  ["dashboard","investors","influencers","all","providers","campaigns","budget","calendar","socialcal","performance","adspend","growth","team","products"].forEach(function(v){
     var el=document.getElementById("nav-"+v);
     if(el) el.classList.toggle("active",currentView===v);
   });
@@ -710,6 +747,7 @@ function setView(view){
     dashboard:"Post Tracking",investors:"Investors",influencers:"Influencer Collabs",
     all:"All Content",providers:"Providers",
     campaigns:"Campaign Manager",budget:"Budget Planner",calendar:"Content Calendar",
+    socialcal:"Social Media Calendar",
     performance:"Performance Tracker",adspend:"Ad Spend Tracker",growth:"Account Growth",
     team:"Team & Freelancers",products:"Product Catalog"
   };
@@ -722,6 +760,7 @@ function setView(view){
   else if(view==="performance") updateAddBtn("performance");
   else if(view==="adspend") updateAddBtn("adspend");
   else if(view==="growth") updateAddBtn("growth");
+  else if(view==="socialcal") updateAddBtn("socialcal");
   else updateAddBtn("content");
   renderSidebar(); rerender();
 }
@@ -735,6 +774,7 @@ function updateAddBtn(type){
   else if(type==="performance"){ btn.innerHTML='<i class="fa-solid fa-plus"></i> Log Metrics'; btn.onclick=openAddPerformance; }
   else if(type==="adspend"){ btn.innerHTML='<i class="fa-solid fa-plus"></i> Add Ad Spend'; btn.onclick=openAddAdSpend; }
   else if(type==="growth"){ btn.innerHTML='<i class="fa-solid fa-plus"></i> Log Snapshot'; btn.onclick=openAddGrowthSnapshot; }
+  else if(type==="socialcal"){ btn.innerHTML='<i class="fa-solid fa-plus"></i> Add Content'; btn.onclick=function(){openAddPlan(null,null);}; }
   else { btn.innerHTML='<i class="fa-solid fa-plus"></i> Add Post'; btn.onclick=openAddContent; }
 }
 function rerender(){
@@ -747,6 +787,7 @@ function rerender(){
   else if(currentView==="campaigns") renderCampaigns();
   else if(currentView==="budget") renderBudget();
   else if(currentView==="calendar") renderCalendar();
+  else if(currentView==="socialcal") renderSocialCalendar();
   else if(currentView==="performance") renderPerformance();
   else if(currentView==="adspend") renderAdSpend();
   else if(currentView==="growth") renderGrowth();
@@ -2943,6 +2984,233 @@ async function deleteAdSpend(id){
   try{ await api("DELETE","/api/ad-spend/"+id); toast("Deleted"); await refreshData(); }catch(e){toast(e.message,"error");}
 }
 
+// ── Social Media Calendar ─────────────────────────────────────────────────────
+var SC_PLATFORMS=[
+  {key:"instagram", label:"Instagram", icon:"fa-brands fa-instagram", color:"#e1306c", bg:"#fdf2f8"},
+  {key:"blog",      label:"Blog",      icon:"fa-solid fa-blog",        color:"#16a34a", bg:"#f0fdf4"},
+  {key:"linkedin",  label:"LinkedIn",  icon:"fa-brands fa-linkedin",   color:"#0077b5", bg:"#eff6ff"},
+  {key:"youtube",   label:"YouTube",   icon:"fa-brands fa-youtube",    color:"#ff0000", bg:"#fff1f2"},
+];
+var SC_TYPES=["Reel","Blog Post","Carousel","Short","Article","Graphic","Other"];
+
+function renderSocialCalendar(){
+  var mc=document.getElementById("mainContent"); if(!mc) return;
+  var monthNames=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var year=scYear, month=scMonth;
+  var daysInMonth=new Date(year,month+1,0).getDate();
+  var today=new Date(); today.setHours(0,0,0,0);
+
+  // Build header days
+  var dayHeaders="<th style=\"width:90px;\">Platform</th>";
+  for(var d=1;d<=daysInMonth;d++){
+    var dt=new Date(year,month,d);
+    var dow=["Su","Mo","Tu","We","Th","Fr","Sa"][dt.getDay()];
+    var isT=dt.getTime()===today.getTime();
+    dayHeaders+="<th"+(isT?" style=\"color:var(--green-700);font-weight:800;\"":" ")+">"+
+      "<div>"+dow+"</div><div>"+d+"</div></th>";
+  }
+
+  // Build platform rows
+  var platformRows=SC_PLATFORMS.map(function(plat){
+    var cells="";
+    for(var d=1;d<=daysInMonth;d++){
+      var dateStr=year+"-"+(String(month+1).padStart(2,"0"))+"-"+(String(d).padStart(2,"0"));
+      var dt=new Date(year,month,d);
+      var isT=dt.getTime()===today.getTime();
+      var plans=DB.contentPlans.filter(function(p){
+        var ps=p[plat.key]||{};
+        var checkDate=ps.scheduled||ps.published||"";
+        return checkDate===dateStr;
+      });
+      var cards=plans.map(function(p){
+        var ps=p[plat.key]||{};
+        var cls="sc-card sc-"+(ps.status||"draft");
+        return "<div class=\""+cls+"\" onclick=\"openScDetail('"+p.id+"')\" title=\""+escHtml(p.title)+"\">"+
+          "<span class=\"sc-type-badge\">"+escHtml(p.contentType||"")+"</span>"+
+          "<span style=\"overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px;\">"+escHtml(p.title)+"</span>"+
+        "</div>";
+      }).join("");
+      cells+="<td class=\"sc-cell"+(isT?" today-col":"")+"\" style=\"background:"+(isT?"rgba(58,125,53,.04)":"")+";\">"+
+        cards+
+        "<button class=\"sc-add-btn\" onclick=\"openAddPlan('"+plat.key+"','"+dateStr+"')\" title=\"Add\">+</button>"+
+      "</td>";
+    }
+    return "<tr>"+
+      "<td class=\"sc-platform-label\" style=\"background:"+plat.bg+";color:"+plat.color+";\">"+
+        "<i class=\""+plat.icon+"\"></i>"+plat.label+
+      "</td>"+cells+"</tr>";
+  }).join("");
+
+  mc.innerHTML=
+    "<div class=\"section-header\">"+
+      "<h2><i class=\"fa-solid fa-share-nodes\" style=\"color:#7c3aed;margin-right:8px;\"></i>Social Media Calendar</h2>"+
+      "<div style=\"display:flex;align-items:center;gap:10px;\">"+
+        "<button class=\"btn btn-outline btn-sm\" onclick=\"prevScMonth()\"><i class=\"fa-solid fa-chevron-left\"></i></button>"+
+        "<span style=\"font-size:15px;font-weight:700;min-width:160px;text-align:center;\">"+monthNames[month]+" "+year+"</span>"+
+        "<button class=\"btn btn-outline btn-sm\" onclick=\"nextScMonth()\"><i class=\"fa-solid fa-chevron-right\"></i></button>"+
+        "<button class=\"btn btn-primary btn-sm\" onclick=\"openAddPlan(null,null)\"><i class=\"fa-solid fa-plus\"></i> Add Content</button>"+
+      "</div>"+
+    "</div>"+
+    "<div class=\"sc-wrap\">"+
+      "<table class=\"sc-table\"><thead><tr>"+dayHeaders+"</tr></thead><tbody>"+platformRows+"</tbody></table>"+
+    "</div>"+
+    "<div class=\"sc-legend\">"+
+      "<span class=\"sc-legend-item\"><span class=\"sc-legend-dot\" style=\"background:#94a3b8;\"></span>Draft</span>"+
+      "<span class=\"sc-legend-item\"><span class=\"sc-legend-dot\" style=\"background:#93c5fd;\"></span>Scheduled</span>"+
+      "<span class=\"sc-legend-item\"><span class=\"sc-legend-dot\" style=\"background:#86efac;\"></span>Published</span>"+
+    "</div>";
+}
+
+function prevScMonth(){ scMonth--; if(scMonth<0){scMonth=11;scYear--;} renderSocialCalendar(); }
+function nextScMonth(){ scMonth++; if(scMonth>11){scMonth=0;scYear++;} renderSocialCalendar(); }
+
+function openScDetail(id){
+  var plan=DB.contentPlans.find(function(p){return p.id===id;}); if(!plan) return;
+  scDetailPlan=plan;
+  var panel=document.getElementById("scDetailPanel"); if(!panel) return;
+  var platformHtml=SC_PLATFORMS.map(function(plat){
+    var ps=plan[plat.key]||{};
+    var status=ps.status||"draft";
+    return "<div class=\"sc-platform-row\">"+
+      "<div class=\"sc-platform-row-header\" style=\"background:"+plat.bg+";color:"+plat.color+";\">"+
+        "<i class=\""+plat.icon+"\"></i>"+plat.label+
+        "<div style=\"margin-left:auto;display:flex;gap:4px;\">"+
+          ["draft","scheduled","published"].map(function(s){
+            return "<button class=\"sc-status-btn sel-"+s+(status===s?" ":" ")+"\" style=\"opacity:"+(status===s?"1":".45")+"\" onclick=\"setPlanStatus('"+id+"','"+plat.key+"','"+s+"')\">"+s.charAt(0).toUpperCase()+s.slice(1)+"</button>";
+          }).join("")+
+        "</div>"+
+      "</div>"+
+      "<div class=\"sc-platform-row-body\">"+
+        "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:8px;\">"+
+          "<div><label style=\"font-size:11px;color:var(--text-3);\">Scheduled</label><div style=\"font-size:12px;font-weight:600;\">"+(ps.scheduled||"—")+"</div></div>"+
+          "<div><label style=\"font-size:11px;color:var(--text-3);\">Published</label><div style=\"font-size:12px;font-weight:600;\">"+(ps.published||"—")+"</div></div>"+
+        "</div>"+
+        (ps.link?"<div><label style=\"font-size:11px;color:var(--text-3);\">Post Link</label><div><a href=\""+escHtml(ps.link)+"\" target=\"_blank\" style=\"font-size:11px;color:var(--blue);\">"+escHtml(ps.link)+"</a></div></div>":"")+
+        (ps.notes?"<div style=\"font-size:11px;color:var(--text-3);\">"+escHtml(ps.notes)+"</div>":"")+
+      "</div>"+
+    "</div>";
+  }).join("");
+  document.getElementById("scPanelTitle").textContent=plan.title;
+  document.getElementById("scPanelType").textContent=plan.contentType||"";
+  document.getElementById("scPanelCreator").textContent=plan.creator||"";
+  document.getElementById("scPanelDesc").textContent=plan.description||"";
+  document.getElementById("scPanelPlatforms").innerHTML=platformHtml;
+  panel.classList.add("open");
+}
+
+function closeScDetail(){
+  var panel=document.getElementById("scDetailPanel"); if(panel) panel.classList.remove("open");
+}
+
+async function setPlanStatus(planId, platform, status){
+  var plan=DB.contentPlans.find(function(p){return p.id===planId;}); if(!plan) return;
+  plan[platform]=plan[platform]||{};
+  plan[platform].status=status;
+  if(status==="published"&&!plan[platform].published) plan[platform].published=new Date().toISOString().slice(0,10);
+  if(status==="scheduled"&&!plan[platform].scheduled) plan[platform].scheduled=new Date().toISOString().slice(0,10);
+  try{
+    await api("PUT","/api/content-plans/"+planId, plan);
+    toast(platform+" marked as "+status);
+    openScDetail(planId);
+    renderSocialCalendar();
+  }catch(e){ toast("Failed to update","error"); }
+}
+
+function populateLinkedPostSelect(selectedId){
+  var sel=document.getElementById("sc_linkedPost"); if(!sel) return;
+  sel.innerHTML="<option value=\"\">— None —</option>"+
+    DB.contents.map(function(c){
+      return "<option value=\""+c.id+"\""+(c.id===selectedId?" selected":"")+">"+escHtml(c.title)+"</option>";
+    }).join("");
+}
+function openAddPlan(presetPlatform, presetDate){
+  editingPlanId=null;
+  ["sc_title","sc_desc","sc_creator","sc_linkedPost"].forEach(function(id){setVal(id,"");});
+  setVal("sc_type","Reel");
+  SC_PLATFORMS.forEach(function(plat){
+    setVal("sc_"+plat.key+"_status","draft");
+    setVal("sc_"+plat.key+"_scheduled", (plat.key===presetPlatform&&presetDate)?presetDate:"");
+    setVal("sc_"+plat.key+"_published","");
+    setVal("sc_"+plat.key+"_link","");
+    setVal("sc_"+plat.key+"_notes","");
+  });
+  // activate first platform tab
+  document.querySelectorAll(".sc-tab").forEach(function(t){t.classList.remove("active");});
+  var firstTab=document.querySelector(".sc-tab");
+  if(firstTab) firstTab.classList.add("active");
+  showScPlatformTab(presetPlatform||"instagram");
+  populateLinkedPostSelect(null);
+  document.getElementById("scModalTitle").textContent="Add Content Plan";
+  openModal("scModal");
+}
+
+function openEditPlan(id){
+  var plan=DB.contentPlans.find(function(p){return p.id===id;}); if(!plan) return;
+  editingPlanId=id;
+  setVal("sc_title",plan.title); setVal("sc_desc",plan.description||"");
+  setVal("sc_creator",plan.creator||""); setVal("sc_type",plan.contentType||"Reel");
+  setVal("sc_linkedPost",plan.linkedPostId||"");
+  SC_PLATFORMS.forEach(function(plat){
+    var ps=plan[plat.key]||{};
+    setVal("sc_"+plat.key+"_status",ps.status||"draft");
+    setVal("sc_"+plat.key+"_scheduled",ps.scheduled||"");
+    setVal("sc_"+plat.key+"_published",ps.published||"");
+    setVal("sc_"+plat.key+"_link",ps.link||"");
+    setVal("sc_"+plat.key+"_notes",ps.notes||"");
+  });
+  showScPlatformTab("instagram");
+  populateLinkedPostSelect(plan.linkedPostId||null);
+  document.getElementById("scModalTitle").textContent="Edit Content Plan";
+  openModal("scModal");
+}
+
+function showScPlatformTab(key){
+  document.querySelectorAll(".sc-tab").forEach(function(t){
+    t.classList.toggle("active",t.dataset.tab===key);
+  });
+  document.querySelectorAll(".sc-tab-pane").forEach(function(p){
+    p.style.display=p.dataset.pane===key?"":"none";
+  });
+}
+
+async function savePlan(){
+  var title=gv("sc_title"); if(!title){toast("Title is required","error");return;}
+  var plan={
+    id:editingPlanId||uid(), title:title,
+    contentType:gv("sc_type")||"Other",
+    description:gv("sc_desc")||null,
+    creator:gv("sc_creator")||null,
+    linkedPostId:gv("sc_linkedPost")||null,
+  };
+  SC_PLATFORMS.forEach(function(plat){
+    plan[plat.key]={
+      status:gv("sc_"+plat.key+"_status")||"draft",
+      scheduled:gv("sc_"+plat.key+"_scheduled")||null,
+      published:gv("sc_"+plat.key+"_published")||null,
+      link:gv("sc_"+plat.key+"_link")||null,
+      notes:gv("sc_"+plat.key+"_notes")||null,
+    };
+  });
+  try{
+    if(editingPlanId){ await api("PUT","/api/content-plans/"+editingPlanId,plan); toast("Content plan updated"); }
+    else { await api("POST","/api/content-plans",plan); toast("Content plan added"); }
+    closeModal("scModal");
+    await refreshData();
+    renderSocialCalendar();
+  }catch(e){ toast("Failed to save: "+e.message,"error"); }
+}
+
+async function deletePlan(id){
+  if(!confirm("Delete this content plan?")) return;
+  try{
+    await api("DELETE","/api/content-plans/"+id);
+    closeScDetail();
+    await refreshData();
+    renderSocialCalendar();
+    toast("Deleted");
+  }catch(e){ toast("Failed","error"); }
+}
+
 // ── Content Calendar ─────────────────────────────────────────────────────────
 function renderCalendar(){
   var mc=document.getElementById("mainContent"); if(!mc) return;
@@ -3401,6 +3669,121 @@ document.addEventListener("DOMContentLoaded", async function(){
     </div>
   </div>
 </div>
+<!-- ── Social Media Calendar Modal ── -->
+<div class="modal-overlay hidden" id="scModal" onclick="if(event.target===this)closeModal('scModal')">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header">
+      <span class="modal-title" id="scModalTitle">Add Content Plan</span>
+      <button class="modal-close" onclick="closeModal('scModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Title *</label><input id="sc_title" placeholder="e.g. Summer Campaign Reel"/></div>
+        <div class="form-group"><label>Content Type</label>
+          <select id="sc_type"><option>Reel</option><option>Blog Post</option><option>Carousel</option><option>Short</option><option>Article</option><option>Graphic</option><option>Other</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Creator / Assigned To</label><input id="sc_creator" placeholder="Who's creating this?"/></div>
+        <div class="form-group"><label>Link to Post (optional)</label>
+          <select id="sc_linkedPost"><option value="">— None —</option></select>
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group"><label>Description</label><textarea id="sc_desc" rows="2" placeholder="Brief description..."></textarea></div>
+      </div>
+      <!-- Platform Tabs -->
+      <div style="border-bottom:1px solid var(--border);margin-bottom:14px;display:flex;gap:4px;">
+        <button class="sc-tab active" data-tab="instagram" onclick="showScPlatformTab('instagram')" style="padding:7px 14px;border:none;background:transparent;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-2);">🟣 Instagram</button>
+        <button class="sc-tab" data-tab="blog" onclick="showScPlatformTab('blog')" style="padding:7px 14px;border:none;background:transparent;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-2);">🟢 Blog</button>
+        <button class="sc-tab" data-tab="linkedin" onclick="showScPlatformTab('linkedin')" style="padding:7px 14px;border:none;background:transparent;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-2);">🔵 LinkedIn</button>
+        <button class="sc-tab" data-tab="youtube" onclick="showScPlatformTab('youtube')" style="padding:7px 14px;border:none;background:transparent;font-size:12px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-2);">🔴 YouTube</button>
+      </div>
+      <!-- Instagram pane -->
+      <div class="sc-tab-pane" data-pane="instagram">
+        <div class="form-row">
+          <div class="form-group"><label>Status</label>
+            <select id="sc_instagram_status"><option value="draft">Draft</option><option value="scheduled">Scheduled</option><option value="published">Published</option></select>
+          </div>
+          <div class="form-group"><label>Scheduled Date</label><input id="sc_instagram_scheduled" type="date"/></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Published Date</label><input id="sc_instagram_published" type="date"/></div>
+          <div class="form-group"><label>Post Link</label><input id="sc_instagram_link" placeholder="https://instagram.com/p/..."/></div>
+        </div>
+        <div class="form-row single"><div class="form-group"><label>Notes</label><input id="sc_instagram_notes" placeholder="Notes..."/></div></div>
+      </div>
+      <!-- Blog pane -->
+      <div class="sc-tab-pane" data-pane="blog" style="display:none;">
+        <div class="form-row">
+          <div class="form-group"><label>Status</label>
+            <select id="sc_blog_status"><option value="draft">Draft</option><option value="scheduled">Scheduled</option><option value="published">Published</option></select>
+          </div>
+          <div class="form-group"><label>Scheduled Date</label><input id="sc_blog_scheduled" type="date"/></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Published Date</label><input id="sc_blog_published" type="date"/></div>
+          <div class="form-group"><label>Post Link</label><input id="sc_blog_link" placeholder="https://yourblog.com/..."/></div>
+        </div>
+        <div class="form-row single"><div class="form-group"><label>Notes</label><input id="sc_blog_notes" placeholder="Notes..."/></div></div>
+      </div>
+      <!-- LinkedIn pane -->
+      <div class="sc-tab-pane" data-pane="linkedin" style="display:none;">
+        <div class="form-row">
+          <div class="form-group"><label>Status</label>
+            <select id="sc_linkedin_status"><option value="draft">Draft</option><option value="scheduled">Scheduled</option><option value="published">Published</option></select>
+          </div>
+          <div class="form-group"><label>Scheduled Date</label><input id="sc_linkedin_scheduled" type="date"/></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Published Date</label><input id="sc_linkedin_published" type="date"/></div>
+          <div class="form-group"><label>Post Link</label><input id="sc_linkedin_link" placeholder="https://linkedin.com/posts/..."/></div>
+        </div>
+        <div class="form-row single"><div class="form-group"><label>Notes</label><input id="sc_linkedin_notes" placeholder="Notes..."/></div></div>
+      </div>
+      <!-- YouTube pane -->
+      <div class="sc-tab-pane" data-pane="youtube" style="display:none;">
+        <div class="form-row">
+          <div class="form-group"><label>Status</label>
+            <select id="sc_youtube_status"><option value="draft">Draft</option><option value="scheduled">Scheduled</option><option value="published">Published</option></select>
+          </div>
+          <div class="form-group"><label>Scheduled Date</label><input id="sc_youtube_scheduled" type="date"/></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Published Date</label><input id="sc_youtube_published" type="date"/></div>
+          <div class="form-group"><label>Post Link</label><input id="sc_youtube_link" placeholder="https://youtube.com/watch?v=..."/></div>
+        </div>
+        <div class="form-row single"><div class="form-group"><label>Notes</label><input id="sc_youtube_notes" placeholder="Notes..."/></div></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('scModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="savePlan()"><i class="fa-solid fa-floppy-disk"></i> Save Plan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Social Calendar Detail Panel ── -->
+<div id="scDetailPanel" class="sc-detail-panel">
+  <div class="sc-panel-header">
+    <div>
+      <div style="font-size:16px;font-weight:700;" id="scPanelTitle"></div>
+      <div style="font-size:12px;color:var(--text-3);margin-top:2px;">
+        <span id="scPanelType"></span> &bull; <span id="scPanelCreator"></span>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <button class="icon-btn" onclick="if(scDetailPlan)openEditPlan(scDetailPlan.id)" title="Edit"><i class="fa-solid fa-pen"></i></button>
+      <button class="icon-btn danger" onclick="if(scDetailPlan)deletePlan(scDetailPlan.id)" title="Delete"><i class="fa-solid fa-trash"></i></button>
+      <button class="icon-btn" onclick="closeScDetail()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+  </div>
+  <div style="padding:16px 20px;">
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:16px;" id="scPanelDesc"></p>
+    <div id="scPanelPlatforms"></div>
+  </div>
+</div>
+
 <div id="loginOverlay">
   <div class="login-card">
     <div class="login-logo-wrap"><img src="/logo.jpg" class="login-logo-img" alt="Truyerba"/></div>
