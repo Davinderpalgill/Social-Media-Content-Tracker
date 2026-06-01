@@ -1842,15 +1842,15 @@ function openEditInfCollab(id){
   setVal("inf_contentReview", inf.contentReview||"pending");
   setVal("inf_postLink", inf.postLink||"");
   setVal("inf_publishedDate", inf.publishedDate||"");
-  document.getElementById("inf_published").checked = !!inf.contentPublished;
+  setVal("inf_published", inf.contentPublished ? "true" : "false");
   setVal("inf_pubPlatforms", inf.publishedPlatforms||"");
   setVal("inf_subType", inf.subscriptionType||"none");
-  document.getElementById("inf_subActive").checked = !!inf.subscriptionActive;
+  setVal("inf_subActive", inf.subscriptionActive ? "true" : "false");
   setVal("inf_subMonths", inf.subscriptionMonths||"");
   setVal("inf_subStart", inf.subscriptionStart||"");
   setVal("inf_subEnd", inf.subscriptionEnd||"");
   setVal("inf_nextDelivery", inf.nextDeliveryDate||"");
-  document.getElementById("inf_contract").checked = !!inf.contractSigned;
+  setVal("inf_contract", inf.contractSigned ? "true" : "false");
   setVal("inf_contractDate", inf.contractDate||"");
   setVal("inf_dateAdded", inf.dateAdded||"");
   setVal("inf_notes", inf.notes||"");
@@ -1885,15 +1885,15 @@ async function saveInfluencerCollab(){
     contentReview: gv("inf_contentReview"),
     postLink: gv("inf_postLink"),
     publishedDate: gv("inf_publishedDate")||null,
-    contentPublished: document.getElementById("inf_published").checked,
+    contentPublished: gv("inf_published") === "true",
     publishedPlatforms: gv("inf_pubPlatforms"),
     subscriptionType: gv("inf_subType"),
-    subscriptionActive: document.getElementById("inf_subActive").checked,
+    subscriptionActive: gv("inf_subActive") === "true",
     subscriptionMonths: gv("inf_subMonths")||null,
     subscriptionStart: gv("inf_subStart")||null,
     subscriptionEnd: gv("inf_subEnd")||null,
     nextDeliveryDate: gv("inf_nextDelivery")||null,
-    contractSigned: document.getElementById("inf_contract").checked,
+    contractSigned: gv("inf_contract") === "true",
     contractDate: gv("inf_contractDate")||null,
     dateAdded: gv("inf_dateAdded")||new Date().toISOString().slice(0,10),
     notes: gv("inf_notes")
@@ -2050,10 +2050,13 @@ async function saveInfVideos(){
   var inf=DB.influencerCollabs.find(function(x){return x.id===editingInfVideoCollabId;}); if(!inf) return;
   try{
     var pubCount=infVideosTemp.filter(function(v){return v.published;}).length;
+    var allPublished=infVideosTemp.length>0&&pubCount===infVideosTemp.length;
     var updated=Object.assign({},inf,{
       videos:infVideosTemp,
       totalReels:infVideosTemp.length||inf.totalReels,
-      reelsDone:pubCount
+      reelsDone:pubCount,
+      contentPublished: allPublished || inf.contentPublished,
+      publishedDate: allPublished && !inf.publishedDate ? new Date().toISOString().slice(0,10) : inf.publishedDate,
     });
     await api("PUT","/api/influencer-collabs/"+editingInfVideoCollabId,updated);
     toast("Videos saved");
