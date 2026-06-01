@@ -1530,11 +1530,15 @@ function renderInfluencerCollabs(){
   var q=document.getElementById("searchInf"); var qv=q?q.value.toLowerCase():"";
   var fp=document.getElementById("filterInfPlatform"); var fpv=fp?fp.value:"";
   var ft=document.getElementById("filterInfTier"); var ftv=ft?ft.value:"";
+  var fpy=document.getElementById("filterInfPay"); var fpyv=fpy?fpy.value:"";
+  var fpb=document.getElementById("filterInfPub"); var fpbv=fpb?fpb.value:"";
   var collabs=DB.influencerCollabs.filter(function(x){
     var m=!qv||(x.influencerName||"").toLowerCase().includes(qv)||(x.handle||"").toLowerCase().includes(qv);
     var p=!fpv||x.platform===fpv;
     var t=!ftv||x.tier===ftv;
-    return m&&p&&t;
+    var py=!fpyv||x.paymentStatus===fpyv;
+    var pb=!fpbv||(fpbv==="published"?x.contentPublished:!x.contentPublished);
+    return m&&p&&t&&py&&pb;
   });
   var all=DB.influencerCollabs;
   var total=all.length;
@@ -1791,6 +1795,17 @@ function renderInfluencerCollabs(){
       "</select>"+
       "<select id=\"filterInfTier\" onchange=\"renderInfluencerCollabs()\">"+
         "<option value=\"\">All Tiers</option><option value=\"nano\""+(ftv==="nano"?" selected":"")+">Nano</option><option value=\"micro\""+(ftv==="micro"?" selected":"")+">Micro</option><option value=\"macro\""+(ftv==="macro"?" selected":"")+">Macro</option><option value=\"mega\""+(ftv==="mega"?" selected":"")+">Mega</option>"+
+      "</select>"+
+      "<select id=\"filterInfPay\" onchange=\"renderInfluencerCollabs()\">"+
+        "<option value=\"\">All Payments</option>"+
+        "<option value=\"paid\""+(fpyv==="paid"?" selected":"")+">Paid</option>"+
+        "<option value=\"partial\""+(fpyv==="partial"?" selected":"")+">Partial</option>"+
+        "<option value=\"unpaid\""+(fpyv==="unpaid"?" selected":"")+">Unpaid</option>"+
+      "</select>"+
+      "<select id=\"filterInfPub\" onchange=\"renderInfluencerCollabs()\">"+
+        "<option value=\"\">All Publish</option>"+
+        "<option value=\"published\""+(fpbv==="published"?" selected":"")+">Published</option>"+
+        "<option value=\"unpublished\""+(fpbv==="unpublished"?" selected":"")+">Unpublished</option>"+
       "</select>"+
     "</div>"+
     "<div class=\"inf-grid\">"+(collabs.map(infCardHtml).join("")||emptyState("fa-solid fa-star","No influencer collabs","Add your first influencer collaboration"))+"</div>";
