@@ -69,6 +69,16 @@ a{text-decoration:none;color:inherit;}button{cursor:pointer;border:none;backgrou
 .dash-filter-tag.active-red{background:#dc2626;color:#fff;border-color:#dc2626;}
 .dash-filter-tag.active-amber{background:#d97706;color:#fff;border-color:#d97706;}
 .dash-filter-tag.active-blue{background:#2563eb;color:#fff;border-color:#2563eb;}
+.vendor-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-top:16px;}
+.vendor-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;gap:10px;}
+.vendor-card-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.vendor-avatar{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0;}
+.vendor-field{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);}
+.vendor-field:last-child{border-bottom:none;}
+.vendor-field-label{color:var(--text-3);}
+.vendor-field-value{font-weight:600;color:var(--text);}
+.pay-dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:18px;}
+.aging-bar{display:flex;gap:3px;height:24px;border-radius:6px;overflow:hidden;margin:10px 0;}
 .card-badges{display:flex;flex-wrap:wrap;gap:5px;}
 .card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:4px;}
 .card-date{font-size:11px;color:var(--text-3);}.card-actions{display:flex;gap:6px;}
@@ -359,6 +369,13 @@ body.dark .inf-video-form{background:var(--card);border-color:var(--border);}
   </div>
   <div class="nav-item" id="nav-socialcal" data-view="socialcal" onclick="setView(this.dataset.view)">
     <i class="fa-solid fa-share-nodes"></i> Social Media Calendar
+  </div>
+  <div class="nav-item" id="nav-payments" data-view="payments" onclick="setView(this.dataset.view)">
+    <i class="fa-solid fa-circle-dollar-to-slot"></i> Payment Dashboard
+  </div>
+  <div class="nav-item" id="nav-vendors" data-view="vendors" onclick="setView(this.dataset.view)">
+    <i class="fa-solid fa-truck"></i> Vendors & Suppliers
+    <span class="nav-badge" id="badge-vendors">0</span>
   </div>
   <div class="sidebar-section-label">Analytics</div>
   <div class="nav-item" id="nav-performance" data-view="performance" onclick="setView(this.dataset.view)">
@@ -690,6 +707,7 @@ async function refreshData(){
     var products=await api("GET","/api/products").catch(function(){return [];});
     var adspend=await api("GET","/api/ad-spend").catch(function(){return [];});
     var contentPlans=await api("GET","/api/content-plans").catch(function(){return [];});
+    var vendors=await api("GET","/api/vendors").catch(function(){return [];});
     DB.categories=cats||[]; DB.contents=contents||[];
     DB.investors=investors||[]; DB.influencerCollabs=collabs||[];
     DB.campaigns=campaigns||[]; DB.performanceMetrics=perf||[];
@@ -697,6 +715,7 @@ async function refreshData(){
     DB.teamMembers=team||[]; DB.teamPayments=tpay||[];
     DB.growthSnapshots=growth||[]; DB.products=products||[]; DB.adSpend=adspend||[];
     DB.contentPlans=contentPlans||[];
+    DB.vendors=vendors||[];
     renderSidebar(); rerender(); renderNotifBell();
   }catch(e){
     if(e.status===401){ setSyncing(false); throw e; }
@@ -714,6 +733,7 @@ function renderSidebar(){
   var bAds=document.getElementById("badge-adspend");
   var bTeam=document.getElementById("badge-team");
   var bProd=document.getElementById("badge-products");
+  var bVend=document.getElementById("badge-vendors");
   if(bDash) bDash.textContent=DB.contents.length;
   if(bInv) bInv.textContent=DB.investors.length;
   if(bInf) bInf.textContent=DB.influencerCollabs.length;
@@ -721,6 +741,7 @@ function renderSidebar(){
   if(bPerf) bPerf.textContent=DB.performanceMetrics.length;
   if(bAds) bAds.textContent=DB.adSpend.length;
   if(bTeam) bTeam.textContent=DB.teamMembers.length;
+  if(bVend) bVend.textContent=(DB.vendors||[]).length;
   if(bProd) bProd.textContent=DB.products.length;
   var nav=document.getElementById("catNav"); if(!nav) return;
   nav.innerHTML=DB.categories.map(function(c){
@@ -730,7 +751,7 @@ function renderSidebar(){
            "<i class=\"fa-solid fa-folder\"></i> "+escHtml(c.name)+
            "<span class=\"nav-badge\">"+cnt+"</span></div>";
   }).join("");
-  ["dashboard","investors","influencers","all","providers","campaigns","budget","calendar","socialcal","performance","adspend","growth","team","products"].forEach(function(v){
+  ["dashboard","investors","influencers","all","providers","campaigns","budget","calendar","socialcal","payments","vendors","performance","adspend","growth","team","products"].forEach(function(v){
     var el=document.getElementById("nav-"+v);
     if(el) el.classList.toggle("active",currentView===v);
   });
@@ -748,6 +769,8 @@ function setView(view){
     all:"All Content",providers:"Providers",
     campaigns:"Campaign Manager",budget:"Budget Planner",calendar:"Content Calendar",
     socialcal:"Social Media Calendar",
+    payments:"Payment Dashboard",
+    vendors:"Vendors & Suppliers",
     performance:"Performance Tracker",adspend:"Ad Spend Tracker",growth:"Account Growth",
     team:"Team & Freelancers",products:"Product Catalog"
   };
@@ -761,6 +784,8 @@ function setView(view){
   else if(view==="adspend") updateAddBtn("adspend");
   else if(view==="growth") updateAddBtn("growth");
   else if(view==="socialcal") updateAddBtn("socialcal");
+  else if(view==="vendors") updateAddBtn("vendors");
+  else if(view==="payments") updateAddBtn("payments");
   else updateAddBtn("content");
   renderSidebar(); rerender();
 }
@@ -775,7 +800,10 @@ function updateAddBtn(type){
   else if(type==="adspend"){ btn.innerHTML='<i class="fa-solid fa-plus"></i> Add Ad Spend'; btn.onclick=openAddAdSpend; }
   else if(type==="growth"){ btn.innerHTML='<i class="fa-solid fa-plus"></i> Log Snapshot'; btn.onclick=openAddGrowthSnapshot; }
   else if(type==="socialcal"){ btn.innerHTML='<i class="fa-solid fa-plus"></i> Add Content'; btn.onclick=function(){openAddPlan(null,null);}; }
+  else if(type==="vendors"){ btn.innerHTML='<i class="fa-solid fa-plus"></i> Add Vendor'; btn.onclick=openAddVendor; }
+  else if(type==="payments"){ btn.style.display="none"; return; }
   else { btn.innerHTML='<i class="fa-solid fa-plus"></i> Add Post'; btn.onclick=openAddContent; }
+  btn.style.display="";
 }
 function rerender(){
   if(currentView==="category") renderCategory();
@@ -788,6 +816,8 @@ function rerender(){
   else if(currentView==="budget") renderBudget();
   else if(currentView==="calendar") renderCalendar();
   else if(currentView==="socialcal") renderSocialCalendar();
+  else if(currentView==="payments") renderPaymentDashboard();
+  else if(currentView==="vendors") renderVendors();
   else if(currentView==="performance") renderPerformance();
   else if(currentView==="adspend") renderAdSpend();
   else if(currentView==="growth") renderGrowth();
@@ -3081,6 +3111,368 @@ async function deleteAdSpend(id){
   try{ await api("DELETE","/api/ad-spend/"+id); toast("Deleted"); await refreshData(); }catch(e){toast(e.message,"error");}
 }
 
+// ── Payment Dashboard ─────────────────────────────────────────────────────────
+function renderPaymentDashboard(){
+  var mc=document.getElementById("mainContent"); if(!mc) return;
+
+  // ── Aggregate all payment sources ──
+  var now=new Date(); now.setHours(0,0,0,0);
+
+  // Content payments
+  var contentItems=(DB.contents||[]).map(function(x){
+    return {name:x.provider||"Unknown",category:"Content",total:Number(x.amount)||0,paid:x.paymentStatus==="paid"?Number(x.amount)||0:0,status:x.paymentStatus||"unpaid",dateAdded:x.dateAdded,datePaid:x.datePaid};
+  });
+
+  // Influencer payments
+  var infItems=(DB.influencerCollabs||[]).map(function(x){
+    return {name:x.influencerName||"Unknown",category:"Influencer",total:Number(x.totalAmount)||0,paid:Number(x.amountPaid)||0,status:x.paymentStatus||"unpaid",dateAdded:x.dateAdded,datePaid:x.paymentDate};
+  });
+
+  // Team payments
+  var teamItems=(DB.teamPayments||[]).map(function(x){
+    var member=(DB.teamMembers||[]).find(function(m){return m.id===x.memberId;});
+    return {name:member?member.name:"Team Member",category:"Team",total:Number(x.amount)||0,paid:Number(x.amount)||0,status:"paid",dateAdded:x.date,datePaid:x.date};
+  });
+
+  // Vendor payments
+  var vendorItems=(DB.vendors||[]).map(function(x){
+    return {name:x.name||"Unknown",category:"Vendor",total:Number(x.invoiceAmount)||0,paid:Number(x.amountPaid)||0,status:x.paymentStatus||"unpaid",dateAdded:x.dateAdded,datePaid:x.paymentDate,dueDate:x.dueDate};
+  });
+
+  var allItems=contentItems.concat(infItems).concat(teamItems).concat(vendorItems);
+
+  // ── KPIs ──
+  var totalBudget=allItems.reduce(function(s,x){return s+(x.total||0);},0);
+  var totalPaid=allItems.reduce(function(s,x){return s+(x.paid||0);},0);
+  var totalOutstanding=totalBudget-totalPaid;
+  var payRate=totalBudget>0?Math.round(totalPaid/totalBudget*100):0;
+
+  // Paid this month
+  var thisMonth=new Date(); var thisMonthStr=thisMonth.getFullYear()+"-"+(String(thisMonth.getMonth()+1).padStart(2,"0"));
+  var paidThisMonth=allItems.filter(function(x){return x.datePaid&&String(x.datePaid).startsWith(thisMonthStr);}).reduce(function(s,x){return s+(x.paid||0);},0);
+
+  // Avg aging for unpaid
+  var unpaidItems=allItems.filter(function(x){return x.status!=="paid"&&x.dateAdded;});
+  var avgAging=unpaidItems.length>0?Math.round(unpaidItems.reduce(function(s,x){return s+Math.floor((Date.now()-new Date(x.dateAdded))/86400000);},0)/unpaidItems.length):0;
+  var overdueItems=allItems.filter(function(x){return x.status!=="paid"&&x.dueDate&&new Date(x.dueDate)<now;});
+
+  // ── Category breakdown ──
+  var cats=[
+    {key:"Content",color:"#3A7D35",icon:"fa-solid fa-film"},
+    {key:"Influencer",color:"#185FA5",icon:"fa-brands fa-instagram"},
+    {key:"Team",color:"#854F0B",icon:"fa-solid fa-users"},
+    {key:"Vendor",color:"#5b21b6",icon:"fa-solid fa-truck"},
+  ];
+  var catBars=cats.map(function(cat){
+    var items=allItems.filter(function(x){return x.category===cat.key;});
+    var total=items.reduce(function(s,x){return s+(x.total||0);},0);
+    var paid=items.reduce(function(s,x){return s+(x.paid||0);},0);
+    var pct=total>0?Math.round(paid/total*100):0;
+    if(!items.length) return "";
+    return "<div style=\"margin-bottom:12px;\">"+
+      "<div style=\"display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;\">"+
+        "<span style=\"color:var(--text);\"><i class=\""+cat.icon+"\" style=\"margin-right:5px;color:"+cat.color+";\"></i>"+cat.key+"</span>"+
+        "<span style=\"color:var(--text-3);\">"+items.length+" items · "+fmtMoney(total)+" · "+pct+"% paid</span>"+
+      "</div>"+
+      "<div class=\"progress-wrap\" style=\"height:7px;\"><div class=\"progress-bar\" style=\"width:"+pct+"%;background:"+cat.color+";\"></div></div>"+
+    "</div>";
+  }).join("");
+
+  // ── Aging buckets ──
+  var buckets=[{label:"0–30d",min:0,max:30,bg:"#dcfce7",color:"#14532d"},{label:"30–60d",min:30,max:60,bg:"#fef3c7",color:"#92400e"},{label:"60–90d",min:60,max:90,bg:"#fee2e2",color:"#991b1b"},{label:"90d+",min:90,max:99999,bg:"#fca5a5",color:"#7f1d1d"}];
+  var bucketAmts=buckets.map(function(b){
+    return unpaidItems.filter(function(x){
+      var days=Math.floor((Date.now()-new Date(x.dateAdded))/86400000);
+      return days>=b.min&&days<b.max;
+    }).reduce(function(s,x){return s+(x.total-x.paid);},0);
+  });
+  var totalAging=bucketAmts.reduce(function(s,v){return s+v;},0)||1;
+  var agingBars=buckets.map(function(b,i){
+    var pct=Math.round(bucketAmts[i]/totalAging*100);
+    return "<div style=\"flex:"+pct+";background:"+b.bg+";display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:"+b.color+";\">"+b.label+"</div>";
+  }).join("");
+
+  // ── Top outstanding ──
+  var topOutstanding=allItems.filter(function(x){return x.status!=="paid";}).sort(function(a,b){return (b.total-b.paid)-(a.total-a.paid);}).slice(0,6);
+  var topRows=topOutstanding.map(function(x){
+    var outstanding=x.total-x.paid;
+    var aging=x.dateAdded?Math.floor((Date.now()-new Date(x.dateAdded))/86400000):0;
+    var agingCls=aging>60?"badge-unpaid":aging>30?"badge-pending":"badge-gray";
+    var catColors={"Content":"#3A7D35","Influencer":"#185FA5","Team":"#854F0B","Vendor":"#5b21b6"};
+    var initials=(x.name||"?").split(" ").map(function(w){return w[0];}).join("").slice(0,2).toUpperCase();
+    return "<div style=\"display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);\">"+
+      "<div style=\"width:30px;height:30px;border-radius:50%;background:"+(catColors[x.category]||"#888")+"22;color:"+(catColors[x.category]||"#888")+";display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;\">"+initials+"</div>"+
+      "<div style=\"flex:1;\">"+
+        "<div style=\"font-size:12px;font-weight:600;color:var(--text);\">"+escHtml(x.name)+"</div>"+
+        "<div style=\"font-size:11px;color:var(--text-3);\">"+x.category+"</div>"+
+      "</div>"+
+      "<span class=\"badge badge-gray\" style=\"font-size:10px;\">"+aging+"d</span>"+
+      "<div style=\"font-size:13px;font-weight:700;color:var(--red);\">"+fmtMoney(outstanding)+"</div>"+
+    "</div>";
+  }).join("");
+
+  // ── Recent payments ──
+  var recentPaid=allItems.filter(function(x){return x.status==="paid"&&x.datePaid;}).sort(function(a,b){return new Date(b.datePaid)-new Date(a.datePaid);}).slice(0,6);
+  var recentRows=recentPaid.map(function(x){
+    var catColors={"Content":"#3A7D35","Influencer":"#185FA5","Team":"#854F0B","Vendor":"#5b21b6"};
+    var initials=(x.name||"?").split(" ").map(function(w){return w[0];}).join("").slice(0,2).toUpperCase();
+    return "<div style=\"display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);\">"+
+      "<div style=\"width:30px;height:30px;border-radius:50%;background:"+(catColors[x.category]||"#888")+"22;color:"+(catColors[x.category]||"#888")+";display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;\">"+initials+"</div>"+
+      "<div style=\"flex:1;\">"+
+        "<div style=\"font-size:12px;font-weight:600;color:var(--text);\">"+escHtml(x.name)+"</div>"+
+        "<div style=\"font-size:11px;color:var(--text-3);\">"+x.category+" · "+fmtDate(x.datePaid)+"</div>"+
+      "</div>"+
+      "<div style=\"font-size:13px;font-weight:700;color:#14532d;\">"+fmtMoney(x.paid)+"</div>"+
+    "</div>";
+  }).join("");
+
+  // ── Full log filter state ──
+  var logCat=document.getElementById("logCatFilter"); var logCatV=logCat?logCat.value:"";
+  var logPay=document.getElementById("logPayFilter"); var logPayV=logPay?logPay.value:"";
+  var logSearch=document.getElementById("logSearch"); var logSearchV=logSearch?logSearch.value.toLowerCase():"";
+  var logItems=allItems.filter(function(x){
+    var mc2=!logCatV||x.category===logCatV;
+    var mp=!logPayV||x.status===logPayV;
+    var mq=!logSearchV||x.name.toLowerCase().includes(logSearchV);
+    return mc2&&mp&&mq;
+  }).sort(function(a,b){return new Date(b.dateAdded||0)-new Date(a.dateAdded||0);});
+
+  var logRows=logItems.map(function(x){
+    var outstanding=Math.max(0,x.total-x.paid);
+    var aging=x.status!=="paid"&&x.dateAdded?Math.floor((Date.now()-new Date(x.dateAdded))/86400000):null;
+    var payBadge=x.status==="paid"?"badge-published":x.status==="partial"?"badge-pending":"badge-unpaid";
+    var catColors={"Content":"#3A7D35","Influencer":"#185FA5","Team":"#854F0B","Vendor":"#5b21b6"};
+    return "<tr>"+
+      "<td style=\"padding:8px;font-weight:600;color:var(--text);\">"+escHtml(x.name)+"</td>"+
+      "<td style=\"padding:8px;\"><span class=\"badge\" style=\"background:"+(catColors[x.category]||"#888")+"22;color:"+(catColors[x.category]||"#888")+";font-size:10px;\">"+x.category+"</span></td>"+
+      "<td style=\"padding:8px;text-align:right;\">"+fmtMoney(x.total)+"</td>"+
+      "<td style=\"padding:8px;text-align:right;color:#14532d;\">"+fmtMoney(x.paid)+"</td>"+
+      "<td style=\"padding:8px;text-align:right;color:var(--red);\">"+( outstanding>0?fmtMoney(outstanding):"<span class='dt-none'>—</span>")+"</td>"+
+      "<td style=\"padding:8px;text-align:center;\"><span class=\"badge "+payBadge+"\">"+x.status+"</span></td>"+
+      "<td style=\"padding:8px;text-align:center;\">"+(aging!==null?"<span class=\"badge "+(aging>60?"badge-unpaid":aging>30?"badge-pending":"badge-gray")+"\">"+aging+"d</span>":"<span class='dt-none'>—</span>")+"</td>"+
+    "</tr>";
+  }).join("");
+
+  mc.innerHTML=
+    // KPIs
+    "<div class=\"dash-kpi-grid\" style=\"margin-bottom:18px;\">"+
+      statCard("fa-solid fa-circle-exclamation","Total Outstanding",fmtMoney(totalOutstanding),"across "+allItems.filter(function(x){return x.status!=="paid";}).length+" unpaid items")+
+      statCard("fa-solid fa-circle-check","Paid This Month",fmtMoney(paidThisMonth),"")+
+      statCard("fa-solid fa-chart-pie","Payment Rate",payRate+"%",fmtMoney(totalPaid)+" of "+fmtMoney(totalBudget)+" cleared")+
+      statCard("fa-solid fa-clock","Avg Aging",avgAging+" days","unpaid items")+
+      statCard("fa-solid fa-triangle-exclamation","Overdue",overdueItems.length,"past due date")+
+    "</div>"+
+
+    // Category + Aging
+    "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;\">"+
+      "<div class=\"card\">"+
+        "<div class=\"card-header\"><i class=\"fa-solid fa-layer-group\" style=\"color:var(--green-700);\"></i><span class=\"card-title\">Spend by Category</span></div>"+
+        "<div class=\"card-body\">"+(catBars||"<div style='color:var(--text-3);font-size:13px;'>No data</div>")+"</div>"+
+      "</div>"+
+      "<div class=\"card\">"+
+        "<div class=\"card-header\"><i class=\"fa-solid fa-clock\" style=\"color:var(--brand-orange);\"></i><span class=\"card-title\">Payment Aging</span></div>"+
+        "<div class=\"card-body\">"+
+          "<div style=\"font-size:11px;color:var(--text-3);margin-bottom:8px;\">How long outstanding payments have been unpaid</div>"+
+          "<div style=\"display:flex;gap:3px;height:24px;border-radius:6px;overflow:hidden;margin-bottom:10px;\">"+agingBars+"</div>"+
+          "<div style=\"display:grid;grid-template-columns:repeat(4,1fr);gap:6px;\">"+
+            buckets.map(function(b,i){
+              return "<div style=\"text-align:center;\">"+
+                "<div style=\"font-size:13px;font-weight:700;color:"+b.color+";\">"+fmtMoney(bucketAmts[i])+"</div>"+
+                "<div style=\"font-size:10px;color:var(--text-3);\">"+b.label+"</div>"+
+              "</div>";
+            }).join("")+
+          "</div>"+
+          (overdueItems.length?"<div style=\"border-top:1px solid var(--border);margin-top:12px;padding-top:10px;\">"+
+            "<div style=\"font-size:11px;font-weight:700;color:var(--red);margin-bottom:6px;\"><i class=\"fa-solid fa-triangle-exclamation\"></i> "+overdueItems.length+" overdue (past due date)</div>"+
+            overdueItems.slice(0,2).map(function(x){
+              return "<div style=\"display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border);\">"+
+                "<span style=\"color:var(--text);\">"+escHtml(x.name)+" <span style='color:var(--text-3);font-size:10px;'>"+x.category+"</span></span>"+
+                "<span style=\"color:var(--red);font-weight:700;\">"+fmtMoney(x.total-x.paid)+"</span>"+
+              "</div>";
+            }).join("")+
+          "</div>":".")+
+        "</div>"+
+      "</div>"+
+    "</div>"+
+
+    // Top outstanding + Recent
+    "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;\">"+
+      "<div class=\"card\">"+
+        "<div class=\"card-header\"><i class=\"fa-solid fa-list\" style=\"color:var(--red);\"></i><span class=\"card-title\">Top Outstanding</span></div>"+
+        "<div class=\"card-body\">"+(topRows||"<div style='color:var(--text-3);font-size:13px;'>All payments cleared!</div>")+"</div>"+
+      "</div>"+
+      "<div class=\"card\">"+
+        "<div class=\"card-header\"><i class=\"fa-solid fa-history\" style=\"color:var(--green-700);\"></i><span class=\"card-title\">Recent Payments</span></div>"+
+        "<div class=\"card-body\">"+(recentRows||"<div style='color:var(--text-3);font-size:13px;'>No payments recorded yet</div>")+"</div>"+
+      "</div>"+
+    "</div>"+
+
+    // Full log
+    "<div class=\"card\">"+
+      "<div class=\"card-header\"><i class=\"fa-solid fa-table\" style=\"color:var(--blue);\"></i><span class=\"card-title\">Full Payments Log</span></div>"+
+      "<div style=\"display:flex;gap:8px;padding:0 16px 12px;flex-wrap:wrap;\">"+
+        "<input id=\"logSearch\" placeholder=\"Search by name...\" value=\""+escHtml(logSearchV)+"\" oninput=\"renderPaymentDashboard()\" style=\"padding:6px 10px;border-radius:6px;border:1.5px solid var(--border);font-size:12px;background:var(--card);color:var(--text);flex:1;min-width:150px;\"/>"+
+        "<select id=\"logCatFilter\" onchange=\"renderPaymentDashboard()\" style=\"padding:6px 10px;border-radius:6px;border:1.5px solid var(--border);font-size:12px;background:var(--card);color:var(--text);\">"+
+          "<option value=\"\">All Categories</option>"+
+          "<option value=\"Content\""+(logCatV==="Content"?" selected":"")+">Content</option>"+
+          "<option value=\"Influencer\""+(logCatV==="Influencer"?" selected":"")+">Influencer</option>"+
+          "<option value=\"Team\""+(logCatV==="Team"?" selected":"")+">Team</option>"+
+          "<option value=\"Vendor\""+(logCatV==="Vendor"?" selected":"")+">Vendor</option>"+
+        "</select>"+
+        "<select id=\"logPayFilter\" onchange=\"renderPaymentDashboard()\" style=\"padding:6px 10px;border-radius:6px;border:1.5px solid var(--border);font-size:12px;background:var(--card);color:var(--text);\">"+
+          "<option value=\"\">All Status</option>"+
+          "<option value=\"paid\""+(logPayV==="paid"?" selected":"")+">Paid</option>"+
+          "<option value=\"partial\""+(logPayV==="partial"?" selected":"")+">Partial</option>"+
+          "<option value=\"unpaid\""+(logPayV==="unpaid"?" selected":"")+">Unpaid</option>"+
+        "</select>"+
+      "</div>"+
+      "<div style=\"overflow-x:auto;\">"+
+        "<table class=\"data-table\"><thead><tr>"+
+          "<th>Name</th><th>Category</th><th style=\"text-align:right;\">Total</th><th style=\"text-align:right;\">Paid</th><th style=\"text-align:right;\">Outstanding</th><th style=\"text-align:center;\">Status</th><th style=\"text-align:center;\">Aging</th>"+
+        "</tr></thead><tbody>"+
+        (logRows||"<tr><td colspan='7' style='text-align:center;padding:20px;color:var(--text-3);'>No entries found</td></tr>")+
+        "</tbody></table>"+
+      "</div>"+
+    "</div>";
+}
+
+// ── Vendors & Suppliers ───────────────────────────────────────────────────────
+var editingVendorId = null;
+var VENDOR_CATS = ["Raw Material","Manufacturer","Packaging","Equipment","Logistics","Other"];
+var VENDOR_CAT_COLORS = {"Raw Material":["#dcfce7","#14532d"],"Manufacturer":["#dbeafe","#1e40af"],"Packaging":["#fef3c7","#92400e"],"Equipment":["#ede9fe","#5b21b6"],"Logistics":["#fee2e2","#991b1b"],"Other":["#f1f5f9","#475569"]};
+
+function renderVendors(){
+  var mc=document.getElementById("mainContent"); if(!mc) return;
+  var q=document.getElementById("vendorSearch"); var qv=q?q.value.toLowerCase():"";
+  var fc=document.getElementById("vendorCatFilter"); var fcv=fc?fc.value:"";
+  var fp=document.getElementById("vendorPayFilter"); var fpv=fp?fp.value:"";
+  var all=DB.vendors||[];
+  var filtered=all.filter(function(v){
+    var mq=!qv||(v.name||"").toLowerCase().includes(qv)||(v.contactPerson||"").toLowerCase().includes(qv)||(v.invoiceNumber||"").toLowerCase().includes(qv);
+    var mc2=!fcv||v.category===fcv;
+    var mp=!fpv||v.paymentStatus===fpv;
+    return mq&&mc2&&mp;
+  });
+
+  var totalBudget=all.reduce(function(s,v){return s+(Number(v.invoiceAmount)||0);},0);
+  var totalPaid=all.reduce(function(s,v){return s+(Number(v.amountPaid)||0);},0);
+  var totalGst=all.reduce(function(s,v){return s+(Number(v.gstAmount)||0);},0);
+  var totalPending=totalBudget-totalPaid;
+  var unpaidCount=all.filter(function(v){return v.paymentStatus==="unpaid";}).length;
+  var overdueCount=all.filter(function(v){
+    return v.paymentStatus!=="paid"&&v.dueDate&&new Date(v.dueDate)<new Date();
+  }).length;
+
+  var cards=filtered.map(function(v){
+    var colors=VENDOR_CAT_COLORS[v.category]||VENDOR_CAT_COLORS["Other"];
+    var initials=(v.name||"?").split(" ").map(function(w){return w[0];}).join("").slice(0,2).toUpperCase();
+    var payBadge=v.paymentStatus==="paid"?"badge-published":v.paymentStatus==="partial"?"badge-pending":"badge-unpaid";
+    var delvBadge=v.deliveryStatus==="delivered"?"badge-published":v.deliveryStatus==="in_transit"?"badge-pending":"badge-unpaid";
+    var dueStr=v.dueDate?fmtDate(v.dueDate):"—";
+    var isOverdue=v.paymentStatus!=="paid"&&v.dueDate&&new Date(v.dueDate)<new Date();
+    var outstanding=Math.max(0,(Number(v.invoiceAmount)||0)-(Number(v.amountPaid)||0));
+    return "<div class=\"vendor-card\">"+
+      "<div class=\"vendor-card-header\">"+
+        "<div style=\"display:flex;align-items:center;gap:10px;\">"+
+          "<div class=\"vendor-avatar\" style=\"background:"+colors[0]+";color:"+colors[1]+";\">"+initials+"</div>"+
+          "<div>"+
+            "<div style=\"font-size:14px;font-weight:700;color:var(--text);\">"+escHtml(v.name)+"</div>"+
+            "<div style=\"font-size:11px;color:var(--text-3);\">"+escHtml(v.category||"")+(v.contactPerson?" · "+escHtml(v.contactPerson):"")+"</div>"+
+          "</div>"+
+        "</div>"+
+        "<div style=\"display:flex;gap:4px;\">"+
+          "<button class=\"icon-btn\" onclick=\"openEditVendor('"+v.id+"')\" title=\"Edit\"><i class=\"fa-solid fa-pen\"></i></button>"+
+          "<button class=\"icon-btn danger\" onclick=\"deleteVendor('"+v.id+"')\" title=\"Delete\"><i class=\"fa-solid fa-trash\"></i></button>"+
+        "</div>"+
+      "</div>"+
+      "<div style=\"display:flex;gap:6px;flex-wrap:wrap;\">"+
+        "<span class=\"badge "+payBadge+"\">"+escHtml(v.paymentStatus||"unpaid")+"</span>"+
+        "<span class=\"badge "+delvBadge+"\"><i class=\"fa-solid fa-truck\" style=\"margin-right:3px;\"></i>"+escHtml(v.deliveryStatus||"pending")+"</span>"+
+        (isOverdue?"<span class=\"badge\" style=\"background:#fee2e2;color:#991b1b;\"><i class=\"fa-solid fa-triangle-exclamation\"></i> Overdue</span>":"")+
+      "</div>"+
+      "<div>"+
+        "<div class=\"vendor-field\"><span class=\"vendor-field-label\">Invoice No.</span><span class=\"vendor-field-value\">"+escHtml(v.invoiceNumber||"—")+"</span></div>"+
+        "<div class=\"vendor-field\"><span class=\"vendor-field-label\">Invoice Amount</span><span class=\"vendor-field-value\">"+fmtMoney(v.invoiceAmount||0)+(v.gstAmount?" <span style='font-size:10px;color:var(--text-3);'>(+"+fmtMoney(v.gstAmount)+" GST)</span>":"")+"</span></div>"+
+        "<div class=\"vendor-field\"><span class=\"vendor-field-label\">Paid / Outstanding</span><span class=\"vendor-field-value\" style=\"color:#14532d;\">"+fmtMoney(v.amountPaid||0)+" <span style='color:var(--red);'>/ "+fmtMoney(outstanding)+"</span></span></div>"+
+        "<div class=\"vendor-field\"><span class=\"vendor-field-label\">Due Date</span><span class=\"vendor-field-value\" style=\"color:"+(isOverdue?"var(--red)":"var(--text)")+";\">"+dueStr+"</span></div>"+
+        (v.poReference?"<div class=\"vendor-field\"><span class=\"vendor-field-label\">PO Reference</span><span class=\"vendor-field-value\">"+escHtml(v.poReference)+"</span></div>":"")+
+        (v.notes?"<div style=\"font-size:11px;color:var(--text-3);margin-top:4px;\">"+escHtml(v.notes)+"</div>":"")+
+      "</div>"+
+    "</div>";
+  }).join("");
+
+  mc.innerHTML=
+    "<div class=\"dash-kpi-grid\" style=\"margin-bottom:18px;\">"+
+      statCard("fa-solid fa-truck","Total Vendors",all.length,filtered.length+" shown")+
+      statCard("fa-solid fa-indian-rupee-sign","Total Invoiced",fmtMoney(totalBudget),fmtMoney(totalPaid)+" paid")+
+      statCard("fa-solid fa-circle-xmark","Outstanding",fmtMoney(totalPending),unpaidCount+" unpaid vendors")+
+      statCard("fa-solid fa-receipt","Total GST",fmtMoney(totalGst),"across all invoices")+
+      statCard("fa-solid fa-triangle-exclamation","Overdue",overdueCount,"past due date")+
+    "</div>"+
+    "<div class=\"filter-bar\">"+
+      "<input id=\"vendorSearch\" placeholder=\"Search vendors...\" value=\""+escHtml(qv)+"\" oninput=\"renderVendors()\"/>"+
+      "<select id=\"vendorCatFilter\" onchange=\"renderVendors()\">"+
+        "<option value=\"\">All Categories</option>"+
+        VENDOR_CATS.map(function(c){return "<option"+(fcv===c?" selected":"")+">"+c+"</option>";}).join("")+
+      "</select>"+
+      "<select id=\"vendorPayFilter\" onchange=\"renderVendors()\">"+
+        "<option value=\"\">All Payments</option>"+
+        "<option value=\"paid\""+(fpv==="paid"?" selected":"")+">Paid</option>"+
+        "<option value=\"partial\""+(fpv==="partial"?" selected":"")+">Partial</option>"+
+        "<option value=\"unpaid\""+(fpv==="unpaid"?" selected":"")+">Unpaid</option>"+
+      "</select>"+
+    "</div>"+
+    "<div class=\"vendor-grid\">"+(cards||emptyState("fa-solid fa-truck","No vendors yet","Add your first vendor or supplier"))+"</div>";
+}
+
+function openAddVendor(){
+  editingVendorId=null;
+  ["vnd_name","vnd_contact","vnd_phone","vnd_email","vnd_invoice","vnd_invoiceAmt","vnd_gst","vnd_amtPaid","vnd_due","vnd_payDate","vnd_po","vnd_bank","vnd_account","vnd_ifsc","vnd_delivDate","vnd_notes","vnd_dateAdded"].forEach(function(id){setVal(id,"");});
+  setVal("vnd_cat","Raw Material"); setVal("vnd_payStatus","unpaid"); setVal("vnd_delivStatus","pending");
+  document.getElementById("vndModalTitle").textContent="Add Vendor";
+  openModal("vendorModal");
+}
+function openEditVendor(id){
+  var v=(DB.vendors||[]).find(function(x){return x.id===id;}); if(!v) return;
+  editingVendorId=id;
+  setVal("vnd_name",v.name||""); setVal("vnd_cat",v.category||"Raw Material");
+  setVal("vnd_contact",v.contactPerson||""); setVal("vnd_phone",v.phone||""); setVal("vnd_email",v.email||"");
+  setVal("vnd_invoice",v.invoiceNumber||""); setVal("vnd_invoiceAmt",v.invoiceAmount||"");
+  setVal("vnd_gst",v.gstAmount||""); setVal("vnd_amtPaid",v.amountPaid||"");
+  setVal("vnd_payStatus",v.paymentStatus||"unpaid"); setVal("vnd_due",v.dueDate||""); setVal("vnd_payDate",v.paymentDate||"");
+  setVal("vnd_po",v.poReference||""); setVal("vnd_bank",v.bankName||"");
+  setVal("vnd_account",v.accountNumber||""); setVal("vnd_ifsc",v.ifscCode||"");
+  setVal("vnd_delivStatus",v.deliveryStatus||"pending"); setVal("vnd_delivDate",v.deliveryDate||"");
+  setVal("vnd_notes",v.notes||""); setVal("vnd_dateAdded",v.dateAdded||"");
+  document.getElementById("vndModalTitle").textContent="Edit Vendor";
+  openModal("vendorModal");
+}
+async function saveVendor(){
+  var name=gv("vnd_name"); if(!name){toast("Vendor name is required","error");return;}
+  var body={
+    id:editingVendorId||uid(), name:name, category:gv("vnd_cat")||"Other",
+    contactPerson:gv("vnd_contact")||null, phone:gv("vnd_phone")||null, email:gv("vnd_email")||null,
+    invoiceNumber:gv("vnd_invoice")||null, invoiceAmount:Number(gv("vnd_invoiceAmt"))||0,
+    gstAmount:Number(gv("vnd_gst"))||0, amountPaid:Number(gv("vnd_amtPaid"))||0,
+    paymentStatus:gv("vnd_payStatus")||"unpaid", dueDate:gv("vnd_due")||null,
+    paymentDate:gv("vnd_payDate")||null, poReference:gv("vnd_po")||null,
+    bankName:gv("vnd_bank")||null, accountNumber:gv("vnd_account")||null,
+    ifscCode:gv("vnd_ifsc")||null, deliveryStatus:gv("vnd_delivStatus")||"pending",
+    deliveryDate:gv("vnd_delivDate")||null, notes:gv("vnd_notes")||null,
+    dateAdded:gv("vnd_dateAdded")||new Date().toISOString().slice(0,10),
+  };
+  try{
+    if(editingVendorId){ await api("PUT","/api/vendors/"+editingVendorId,body); toast("Vendor updated"); }
+    else { await api("POST","/api/vendors",body); toast("Vendor added"); }
+    closeModal("vendorModal"); await refreshData(); renderVendors();
+  }catch(e){ toast("Failed: "+e.message,"error"); }
+}
+async function deleteVendor(id){
+  if(!confirm("Delete this vendor?")) return;
+  try{ await api("DELETE","/api/vendors/"+id); toast("Deleted"); await refreshData(); renderVendors(); }
+  catch(e){ toast("Failed","error"); }
+}
+
 // ── Social Media Calendar ─────────────────────────────────────────────────────
 var SC_PLATFORMS=[
   {key:"instagram", label:"Instagram", icon:"fa-brands fa-instagram", color:"#e1306c", bg:"#fdf2f8"},
@@ -3766,6 +4158,72 @@ document.addEventListener("DOMContentLoaded", async function(){
     </div>
   </div>
 </div>
+<!-- ── Vendor Modal ── -->
+<div class="modal-overlay hidden" id="vendorModal" onclick="if(event.target===this)closeModal('vendorModal')">
+  <div class="modal" style="max-width:660px;">
+    <div class="modal-header">
+      <span class="modal-title" id="vndModalTitle">Add Vendor</span>
+      <button class="modal-close" onclick="closeModal('vendorModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section-title">1. Vendor Info</div>
+      <div class="form-row">
+        <div class="form-group"><label>Vendor Name *</label><input id="vnd_name" placeholder="e.g. ABC Manufacturers"/></div>
+        <div class="form-group"><label>Category</label>
+          <select id="vnd_cat"><option>Raw Material</option><option>Manufacturer</option><option>Packaging</option><option>Equipment</option><option>Logistics</option><option>Other</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Contact Person</label><input id="vnd_contact" placeholder="Name"/></div>
+        <div class="form-group"><label>Phone</label><input id="vnd_phone" placeholder="+91..."/></div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group"><label>Email</label><input id="vnd_email" type="email" placeholder="vendor@email.com"/></div>
+      </div>
+      <div class="modal-section-title">2. Invoice Details</div>
+      <div class="form-row">
+        <div class="form-group"><label>Invoice Number</label><input id="vnd_invoice" placeholder="INV-001"/></div>
+        <div class="form-group"><label>PO Reference</label><input id="vnd_po" placeholder="PO-2024-001"/></div>
+      </div>
+      <div class="form-row triple">
+        <div class="form-group"><label>Invoice Amount (₹)</label><input id="vnd_invoiceAmt" type="number" placeholder="0"/></div>
+        <div class="form-group"><label>GST Amount (₹)</label><input id="vnd_gst" type="number" placeholder="0"/></div>
+        <div class="form-group"><label>Amount Paid (₹)</label><input id="vnd_amtPaid" type="number" placeholder="0"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Payment Status</label>
+          <select id="vnd_payStatus"><option value="unpaid">Unpaid</option><option value="partial">Partial</option><option value="paid">Paid</option></select>
+        </div>
+        <div class="form-group"><label>Due Date</label><input id="vnd_due" type="date"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Payment Date</label><input id="vnd_payDate" type="date"/></div>
+        <div class="form-group"><label>Date Added</label><input id="vnd_dateAdded" type="date"/></div>
+      </div>
+      <div class="modal-section-title">3. Bank Details</div>
+      <div class="form-row triple">
+        <div class="form-group"><label>Bank Name</label><input id="vnd_bank" placeholder="HDFC Bank"/></div>
+        <div class="form-group"><label>Account Number</label><input id="vnd_account" placeholder="XXXX XXXX"/></div>
+        <div class="form-group"><label>IFSC Code</label><input id="vnd_ifsc" placeholder="HDFC0001234"/></div>
+      </div>
+      <div class="modal-section-title">4. Delivery</div>
+      <div class="form-row">
+        <div class="form-group"><label>Delivery Status</label>
+          <select id="vnd_delivStatus"><option value="pending">Pending</option><option value="in_transit">In Transit</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option></select>
+        </div>
+        <div class="form-group"><label>Delivery Date</label><input id="vnd_delivDate" type="date"/></div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group"><label>Notes</label><textarea id="vnd_notes" rows="2" placeholder="Additional notes..."></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('vendorModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveVendor()"><i class="fa-solid fa-floppy-disk"></i> Save Vendor</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Social Media Calendar Modal ── -->
 <div class="modal-overlay hidden" id="scModal" onclick="if(event.target===this)closeModal('scModal')">
   <div class="modal" style="max-width:620px;">
