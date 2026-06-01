@@ -202,6 +202,35 @@ async function initDB() {
     );
   `);
 
+  // ── Migrate: add vendors table ───────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS vendors (
+      id                VARCHAR(60)    PRIMARY KEY,
+      name              VARCHAR(255)   NOT NULL,
+      category          VARCHAR(50)    DEFAULT 'other',
+      contact_person    VARCHAR(255),
+      phone             VARCHAR(100),
+      email             VARCHAR(255),
+      invoice_number    VARCHAR(100),
+      invoice_amount    NUMERIC(12,2)  DEFAULT 0,
+      gst_amount        NUMERIC(12,2)  DEFAULT 0,
+      amount_paid       NUMERIC(12,2)  DEFAULT 0,
+      payment_status    VARCHAR(20)    DEFAULT 'unpaid',
+      due_date          DATE,
+      payment_date      DATE,
+      po_reference      VARCHAR(100),
+      bank_name         VARCHAR(255),
+      account_number    VARCHAR(100),
+      ifsc_code         VARCHAR(20),
+      delivery_status   VARCHAR(30)    DEFAULT 'pending',
+      delivery_date     DATE,
+      notes             TEXT,
+      date_added        DATE           DEFAULT CURRENT_DATE,
+      created_at        TIMESTAMPTZ    DEFAULT NOW(),
+      updated_at        TIMESTAMPTZ    DEFAULT NOW()
+    );
+  `);
+
   // Seed default categories only on first run
   const { rows } = await pool.query('SELECT COUNT(*) FROM categories');
   if (parseInt(rows[0].count) === 0) {
@@ -617,6 +646,75 @@ app.put('/api/content-plans/:id', async (req, res) => {
 app.delete('/api/content-plans/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM content_plans WHERE id=$1', [req.params.id]);
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── API: Vendors ──────────────────────────────────────────────────────────────
+function mapVendor(r) {
+  return {
+    id: r.id, name: r.name, category: r.category,
+    contactPerson: r.contact_person, phone: r.phone, email: r.email,
+    invoiceNumber: r.invoice_number, invoiceAmount: r.invoice_amount,
+    gstAmount: r.gst_amount, amountPaid: r.amount_paid,
+    paymentStatus: r.payment_status, dueDate: r.due_date,
+    paymentDate: r.payment_date, poReference: r.po_reference,
+    bankName: r.bank_name, accountNumber: r.account_number,
+    ifscCode: r.ifsc_code, deliveryStatus: r.delivery_status,
+    deliveryDate: r.delivery_date, notes: r.notes,
+    dateAdded: r.date_added, createdAt: r.created_at, updatedAt: r.updated_at,
+  };
+}
+app.get('/api/vendors', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM vendors ORDER BY created_at DESC');
+    res.json(rows.map(mapVendor));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/vendors', async (req, res) => {
+  try {
+    const v = req.body;
+    await pool.query(
+      `INSERT INTO vendors
+         (id,name,category,contact_person,phone,email,invoice_number,
+          invoice_amount,gst_amount,amount_paid,payment_status,due_date,
+          payment_date,po_reference,bank_name,account_number,ifsc_code,
+          delivery_status,delivery_date,notes,date_added)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+      [v.id, v.name, v.category||'other', v.contactPerson||null, v.phone||null,
+       v.email||null, v.invoiceNumber||null, v.invoiceAmount||0, v.gstAmount||0,
+       v.amountPaid||0, v.paymentStatus||'unpaid', v.dueDate||null,
+       v.paymentDate||null, v.poReference||null, v.bankName||null,
+       v.accountNumber||null, v.ifscCode||null, v.deliveryStatus||'pending',
+       v.deliveryDate||null, v.notes||null, v.dateAdded||null]
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.put('/api/vendors/:id', async (req, res) => {
+  try {
+    const v = req.body;
+    await pool.query(
+      `UPDATE vendors SET
+         name=$1,category=$2,contact_person=$3,phone=$4,email=$5,
+         invoice_number=$6,invoice_amount=$7,gst_amount=$8,amount_paid=$9,
+         payment_status=$10,due_date=$11,payment_date=$12,po_reference=$13,
+         bank_name=$14,account_number=$15,ifsc_code=$16,delivery_status=$17,
+         delivery_date=$18,notes=$19,date_added=$20,updated_at=NOW()
+       WHERE id=$21`,
+      [v.name, v.category||'other', v.contactPerson||null, v.phone||null,
+       v.email||null, v.invoiceNumber||null, v.invoiceAmount||0, v.gstAmount||0,
+       v.amountPaid||0, v.paymentStatus||'unpaid', v.dueDate||null,
+       v.paymentDate||null, v.poReference||null, v.bankName||null,
+       v.accountNumber||null, v.ifscCode||null, v.deliveryStatus||'pending',
+       v.deliveryDate||null, v.notes||null, v.dateAdded||null, req.params.id]
+    );
+    res.json({ success: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+app.delete('/api/vendors/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM vendors WHERE id=$1', [req.params.id]);
     res.json({ success: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
