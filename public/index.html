@@ -1536,192 +1536,271 @@ function renderInfluencerCollabs(){
     var t=!ftv||x.tier===ftv;
     return m&&p&&t;
   });
-  var total=DB.influencerCollabs.length;
-  var paidCollabCount=DB.influencerCollabs.filter(function(x){return x.collabType==="paid";}).length;
-  var giftedCount=DB.influencerCollabs.filter(function(x){return x.collabType!=="paid";}).length;
-  var published=DB.influencerCollabs.filter(function(x){return x.contentPublished;}).length;
-  var parcelSent=DB.influencerCollabs.filter(function(x){return x.parcelStatus==="sent"||x.parcelStatus==="delivered";}).length;
-  var activeSubs=DB.influencerCollabs.filter(function(x){return x.subscriptionActive;}).length;
-  var totalReels=DB.influencerCollabs.reduce(function(s,x){return s+(Number(x.totalReels)||0);},0);
-  var doneReels=DB.influencerCollabs.reduce(function(s,x){return s+(Number(x.reelsDone)||0);},0);
-  var reelsPct=totalReels>0?Math.round(doneReels/totalReels*100):0;
-  var contracts=DB.influencerCollabs.filter(function(x){return x.contractSigned;}).length;
-
-  // --- Cost Analysis ---
-  var totalBudget=DB.influencerCollabs.reduce(function(s,x){return s+(Number(x.totalAmount)||0);},0);
-  var totalPaidOut=DB.influencerCollabs.reduce(function(s,x){return s+(Number(x.amountPaid)||0);},0);
+  var all=DB.influencerCollabs;
+  var total=all.length;
+  var published=all.filter(function(x){return x.contentPublished;}).length;
+  var publishRate=total>0?Math.round(published/total*100):0;
+  var totalReels=all.reduce(function(s,x){return s+(Number(x.totalReels)||0);},0);
+  var doneReels=all.reduce(function(s,x){return s+(Number(x.reelsDone)||0);},0);
+  var activeSubs=all.filter(function(x){return x.subscriptionActive;}).length;
+  var contracts=all.filter(function(x){return x.contractSigned;}).length;
+  var totalBudget=all.reduce(function(s,x){return s+(Number(x.totalAmount)||0);},0);
+  var totalPaidOut=all.reduce(function(s,x){return s+(Number(x.amountPaid)||0);},0);
   var totalPending=totalBudget-totalPaidOut;
-  var paidPayCount=DB.influencerCollabs.filter(function(x){return x.paymentStatus==="paid";}).length;
-  var partialPayCount=DB.influencerCollabs.filter(function(x){return x.paymentStatus==="partial";}).length;
-  var unpaidPayCount=DB.influencerCollabs.filter(function(x){return x.paymentStatus==="unpaid";}).length;
-  var paidCollabsArr=DB.influencerCollabs.filter(function(x){return x.collabType==="paid"&&Number(x.totalAmount)>0;});
-  var avgDeal=paidCollabsArr.length>0?(paidCollabsArr.reduce(function(s,x){return s+(Number(x.totalAmount)||0);},0)/paidCollabsArr.length):0;
-  var utilizationPct=totalBudget>0?Math.min(100,Math.round(totalPaidOut/totalBudget*100)):0;
+  var paidPayCount=all.filter(function(x){return x.paymentStatus==="paid";}).length;
+  var partialPayCount=all.filter(function(x){return x.paymentStatus==="partial";}).length;
+  var unpaidPayCount=all.filter(function(x){return x.paymentStatus==="unpaid";}).length;
+  var paidCollabsArr=all.filter(function(x){return x.collabType==="paid"&&Number(x.totalAmount)>0;});
+  var avgDeal=paidCollabsArr.length>0?Math.round(paidCollabsArr.reduce(function(s,x){return s+(Number(x.totalAmount)||0);},0)/paidCollabsArr.length):0;
+  var giftedVal=all.filter(function(x){return x.collabType!=="paid";}).reduce(function(s,x){return s+(Number(x.totalAmount)||0);},0);
+  var avgCostPerReel=doneReels>0?Math.round(totalPaidOut/doneReels):0;
 
-  // Tier breakdown rows
-  var tiers=["nano","micro","macro","mega"];
-  var tierRows=tiers.map(function(t){
-    var tc=DB.influencerCollabs.filter(function(x){return x.tier===t;});
+  // ── Pipeline counts ──
+  var scriptReady=all.filter(function(x){return x.scriptStatus==="approved"&&!x.contentPublished;}).length;
+  var inProduction=all.filter(function(x){return ["in_progress","filming","editing"].includes(x.scriptStatus)&&!x.contentPublished;}).length;
+  var underReview=all.filter(function(x){return x.contentReview==="submitted"||x.contentReview==="revision_requested";}).length;
+  var scheduled=all.filter(function(x){return x.scheduledDate&&!x.contentPublished;}).length;
+
+  // ── Alerts ──
+  var now=new Date(); now.setHours(0,0,0,0);
+  var overduePayments=all.filter(function(x){
+    if(x.paymentStatus==="paid") return false;
+    if(!x.dateAdded) return false;
+    return Math.floor((Date.now()-new Date(x.dateAdded))/86400000)>30;
+  }).length;
+  var stuckReview=all.filter(function(x){return x.contentReview==="submitted";}).length;
+  var parcelPending=all.filter(function(x){return x.parcelStatus==="not_sent"||x.parcelStatus==="not_required"?false:x.parcelStatus==="pending";}).length;
+  var parcelNotSent=all.filter(function(x){
+    return x.productIncluded&&(x.parcelStatus==="not_sent"||!x.parcelStatus||x.parcelStatus==="not_required");
+  }).length;
+
+  // ── Platform performance bars ──
+  var platList=["Instagram","YouTube","TikTok","Facebook","LinkedIn","Twitter/X"];
+  var platColors={"Instagram":"#e1306c","YouTube":"#ff0000","TikTok":"#010101","Facebook":"#1877f2","LinkedIn":"#0077b5","Twitter/X":"#1da1f2"};
+  var platIcons={"Instagram":"fa-brands fa-instagram","YouTube":"fa-brands fa-youtube","TikTok":"fa-brands fa-tiktok","Facebook":"fa-brands fa-facebook","LinkedIn":"fa-brands fa-linkedin","Twitter/X":"fa-brands fa-x-twitter"};
+  var platData=platList.map(function(pl){
+    var pc=all.filter(function(x){return x.platform===pl;});
+    return {pl:pl,count:pc.length,budget:pc.reduce(function(s,x){return s+(Number(x.totalAmount)||0);},0)};
+  }).filter(function(d){return d.count>0;}).sort(function(a,b){return b.budget-a.budget;});
+  var maxBudget=platData.length?platData[0].budget:1;
+  var platBars=platData.map(function(d){
+    var pct=Math.round(d.budget/maxBudget*100);
+    return "<div style=\"margin-bottom:10px;\">"+
+      "<div style=\"display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;\">"+
+        "<span style=\"color:var(--text);\"><i class=\""+(platIcons[d.pl]||"fa-solid fa-globe")+"\" style=\"margin-right:5px;color:"+(platColors[d.pl]||"#888")+"\"></i>"+d.pl+"</span>"+
+        "<span style=\"color:var(--text-3);\">"+d.count+" · "+fmtMoney(d.budget)+"</span>"+
+      "</div>"+
+      "<div class=\"progress-wrap\" style=\"height:6px;\"><div class=\"progress-bar\" style=\"width:"+pct+"%;background:"+(platColors[d.pl]||"var(--green-600)")+";\"></div></div>"+
+    "</div>";
+  }).join("");
+
+  // ── Tier breakdown with publish rate ──
+  var tierDefs=[{k:"mega",l:"Mega",cls:"badge-red"},{k:"macro",l:"Macro",cls:"badge-amber"},{k:"micro",l:"Micro",cls:"badge-blue"},{k:"nano",l:"Nano",cls:"badge-green"}];
+  var tierBars=tierDefs.map(function(td){
+    var tc=all.filter(function(x){return x.tier===td.k;});
     if(!tc.length) return "";
+    var tcPub=tc.filter(function(x){return x.contentPublished;}).length;
     var tcBudget=tc.reduce(function(s,x){return s+(Number(x.totalAmount)||0);},0);
-    var tcPaid=tc.reduce(function(s,x){return s+(Number(x.amountPaid)||0);},0);
-    var tierCls={nano:"tier-nano",micro:"tier-micro",macro:"tier-macro",mega:"tier-mega"}[t]||"badge-gray";
-    return "<tr>"+
-      "<td><span class=\"badge "+tierCls+"\">"+(t.charAt(0).toUpperCase()+t.slice(1))+"</span></td>"+
-      "<td>"+tc.length+"</td>"+
-      "<td class=\"dt-amt\">"+(tcBudget?fmtMoney(tcBudget):"<span class=\"dt-none\">—</span>")+"</td>"+
-      "<td class=\"dt-amt\" style=\"color:#14532d;\">"+(tcPaid?fmtMoney(tcPaid):"<span class=\"dt-none\">—</span>")+"</td>"+
-      "<td class=\"dt-amt\" style=\"color:var(--red);\">"+((tcBudget-tcPaid)>0?fmtMoney(tcBudget-tcPaid):"<span class=\"dt-none\">—</span>")+"</td>"+
-    "</tr>";
+    var pubPct=Math.round(tcPub/tc.length*100);
+    return "<div style=\"margin-bottom:10px;\">"+
+      "<div style=\"display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:3px;\">"+
+        "<span><span class=\"badge "+td.cls+"\">"+td.l+"</span></span>"+
+        "<span style=\"color:var(--text-3);\">"+tc.length+" collabs · "+fmtMoney(tcBudget)+" · "+pubPct+"% published</span>"+
+      "</div>"+
+      "<div class=\"progress-wrap\" style=\"height:6px;\"><div class=\"progress-bar\" style=\"width:"+pubPct+"%; background:var(--green-600);\"></div></div>"+
+    "</div>";
   }).join("");
 
-  // Collab type breakdown rows
-  var ctypes=[["paid","Paid","badge-orange"],["barter","Barter","badge-purple"],["unpaid","Gifted/Free","badge-gray"]];
-  var ctypeRows=ctypes.map(function(ct){
-    var cc=DB.influencerCollabs.filter(function(x){return x.collabType===ct[0];});
-    if(!cc.length) return "";
-    var ccBudget=cc.reduce(function(s,x){return s+(Number(x.totalAmount)||0);},0);
-    var ccPaid=cc.reduce(function(s,x){return s+(Number(x.amountPaid)||0);},0);
-    return "<tr>"+
-      "<td><span class=\"badge "+ct[2]+"\">"+ct[1]+"</span></td>"+
-      "<td>"+cc.length+"</td>"+
-      "<td class=\"dt-amt\">"+(ccBudget?fmtMoney(ccBudget):"<span class=\"dt-none\">—</span>")+"</td>"+
-      "<td class=\"dt-amt\" style=\"color:#14532d;\">"+(ccPaid?fmtMoney(ccPaid):"<span class=\"dt-none\">—</span>")+"</td>"+
-      "<td class=\"dt-amt\" style=\"color:var(--red);\">"+((ccBudget-ccPaid)>0?fmtMoney(ccBudget-ccPaid):"<span class=\"dt-none\">—</span>")+"</td>"+
-    "</tr>";
-  }).join("");
+  // ── Budget donut SVG ──
+  var circumference=201; // 2*pi*32
+  var paidPct=totalBudget>0?totalPaidOut/totalBudget:0;
+  var partialAmt=all.filter(function(x){return x.paymentStatus==="partial";}).reduce(function(s,x){return s+(Number(x.totalAmount)||0)-(Number(x.amountPaid)||0);},0);
+  var partialPct=totalBudget>0?partialAmt/totalBudget:0;
+  var unpaidAmt=all.filter(function(x){return x.paymentStatus==="unpaid";}).reduce(function(s,x){return s+(Number(x.totalAmount)||0);},0);
+  var unpaidPct=totalBudget>0?unpaidAmt/totalBudget:0;
+  var paidLen=Math.round(paidPct*circumference);
+  var partLen=Math.round(partialPct*circumference);
+  var unpaidLen=Math.round(unpaidPct*circumference);
+  var donutSvg=totalBudget>0?
+    "<svg width=\"100\" height=\"100\" viewBox=\"0 0 100 100\">"+
+      "<circle cx=\"50\" cy=\"50\" r=\"32\" fill=\"none\" stroke=\"var(--bg)\" stroke-width=\"14\"/>"+
+      "<circle cx=\"50\" cy=\"50\" r=\"32\" fill=\"none\" stroke=\"#3A7D35\" stroke-width=\"14\" stroke-dasharray=\""+paidLen+" "+circumference+"\" stroke-dashoffset=\"0\" transform=\"rotate(-90 50 50)\"/>"+
+      "<circle cx=\"50\" cy=\"50\" r=\"32\" fill=\"none\" stroke=\"#f59e0b\" stroke-width=\"14\" stroke-dasharray=\""+partLen+" "+circumference+"\" stroke-dashoffset=\""+(-(paidLen))+"\" transform=\"rotate(-90 50 50)\"/>"+
+      "<circle cx=\"50\" cy=\"50\" r=\"32\" fill=\"none\" stroke=\"#ef4444\" stroke-width=\"14\" stroke-dasharray=\""+unpaidLen+" "+circumference+"\" stroke-dashoffset=\""+(-( paidLen+partLen))+"\" transform=\"rotate(-90 50 50)\"/>"+
+      "<text x=\"50\" y=\"47\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"var(--text)\">"+fmtMoney(totalBudget)+"</text>"+
+      "<text x=\"50\" y=\"58\" text-anchor=\"middle\" font-size=\"8\" fill=\"var(--text-3)\">total</text>"+
+    "</svg>"
+  :"<div style=\"width:100px;height:100px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text-3);\">No data</div>";
 
-  // Platform breakdown rows
-  var platforms=["Instagram","YouTube","TikTok","Facebook","LinkedIn","Twitter/X","Other"];
-  var platformRows=platforms.map(function(pl){
-    var pc=DB.influencerCollabs.filter(function(x){return x.platform===pl;});
-    if(!pc.length) return "";
-    var pcBudget=pc.reduce(function(s,x){return s+(Number(x.totalAmount)||0);},0);
-    var pcPaid=pc.reduce(function(s,x){return s+(Number(x.amountPaid)||0);},0);
-    var platformIcons={"Instagram":"fa-brands fa-instagram","YouTube":"fa-brands fa-youtube","TikTok":"fa-brands fa-tiktok","Facebook":"fa-brands fa-facebook","LinkedIn":"fa-brands fa-linkedin","Twitter/X":"fa-brands fa-x-twitter"};
-    var icon=platformIcons[pl]||"fa-solid fa-globe";
+  // ── Leaderboard rows ──
+  var leaderboard=all.slice().sort(function(a,b){
+    var ar=a.totalReels>0?a.reelsDone/a.totalReels:0;
+    var br=b.totalReels>0?b.reelsDone/b.totalReels:0;
+    if(b.contentPublished!==a.contentPublished) return (b.contentPublished?1:0)-(a.contentPublished?1:0);
+    return br-ar;
+  }).slice(0,8);
+
+  var lbRows=leaderboard.map(function(inf,i){
+    var initial=(inf.influencerName||"?").charAt(0).toUpperCase();
+    var avatarColors=[["#dcfce7","#14532d"],["#dbeafe","#1e40af"],["#fef3c7","#92400e"],["#fce7f3","#9d174d"],["#ede9fe","#5b21b6"],["#fee2e2","#991b1b"],["#e0f2fe","#075985"],["#f0fdf4","#166534"]];
+    var ac=avatarColors[i%avatarColors.length];
+    var tierCls={nano:"badge-green",micro:"badge-blue",macro:"badge-amber",mega:"badge-red"}[inf.tier||""]||"badge-gray";
+    var reelPct=inf.totalReels>0?Math.round((inf.reelsDone||0)/inf.totalReels*100):0;
+    var statusBadge=inf.contentPublished
+      ?"<span class=\"badge badge-published\"><i class=\"fa-solid fa-check\"></i> Published</span>"
+      :inf.contentReview==="submitted"
+        ?"<span class=\"badge badge-pending\">Under review</span>"
+        :"<span class=\"badge badge-unpaid\">In progress</span>";
+    var overdueFlag="";
+    if(!inf.contentPublished&&inf.dateAdded&&Math.floor((Date.now()-new Date(inf.dateAdded))/86400000)>45){
+      overdueFlag="<span class=\"badge\" style=\"background:#fee2e2;color:#991b1b;margin-left:4px;\"><i class=\"fa-solid fa-clock\"></i> Overdue</span>";
+    }
     return "<tr>"+
-      "<td><span style=\"display:flex;align-items:center;gap:6px;\"><i class=\""+icon+"\"></i>"+pl+"</span></td>"+
-      "<td>"+pc.length+"</td>"+
-      "<td class=\"dt-amt\">"+(pcBudget?fmtMoney(pcBudget):"<span class=\"dt-none\">—</span>")+"</td>"+
-      "<td class=\"dt-amt\" style=\"color:#14532d;\">"+(pcPaid?fmtMoney(pcPaid):"<span class=\"dt-none\">—</span>")+"</td>"+
-      "<td class=\"dt-amt\" style=\"color:var(--red);\">"+((pcBudget-pcPaid)>0?fmtMoney(pcBudget-pcPaid):"<span class=\"dt-none\">—</span>")+"</td>"+
+      "<td style=\"padding:8px;\">"+
+        "<div style=\"display:flex;align-items:center;gap:8px;\">"+
+          "<div style=\"width:30px;height:30px;border-radius:50%;background:"+ac[0]+";color:"+ac[1]+";display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;\">"+initial+"</div>"+
+          "<div>"+
+            "<div style=\"font-size:13px;font-weight:600;color:var(--text);\">"+escHtml(inf.influencerName||"")+"</div>"+
+            (inf.handle?"<div style=\"font-size:11px;color:var(--text-3);\">"+escHtml(inf.handle)+"</div>":"")+
+          "</div>"+
+        "</div>"+
+      "</td>"+
+      "<td style=\"padding:8px;font-size:12px;\"><i class=\""+(platIcons[inf.platform]||"fa-solid fa-globe")+"\" style=\"margin-right:4px;color:"+(platColors[inf.platform]||"var(--text-3)")+"\"></i>"+escHtml(inf.platform||"—")+"</td>"+
+      "<td style=\"padding:8px;\"><span class=\"badge "+tierCls+"\">"+(inf.tier?inf.tier.charAt(0).toUpperCase()+inf.tier.slice(1):"—")+"</span></td>"+
+      "<td style=\"padding:8px;font-size:12px;text-align:right;\">"+fmtMoney(inf.totalAmount||0)+"</td>"+
+      "<td style=\"padding:8px;font-size:12px;text-align:right;\">"+(inf.followerCount?Number(inf.followerCount).toLocaleString("en-IN"):"—")+"</td>"+
+      "<td style=\"padding:8px;\">"+
+        "<div style=\"font-size:11px;color:var(--text-3);margin-bottom:2px;\">"+(inf.reelsDone||0)+"/"+( inf.totalReels||0)+" reels</div>"+
+        "<div class=\"progress-wrap\" style=\"height:4px;\"><div class=\"progress-bar\" style=\"width:"+reelPct+"%;\"></div></div>"+
+      "</td>"+
+      "<td style=\"padding:8px;\">"+statusBadge+overdueFlag+"</td>"+
+      "<td style=\"padding:8px;\">"+
+        "<div style=\"display:flex;gap:4px;\">"+
+          "<button class=\"icon-btn\" onclick=\"openEditInfCollab('"+inf.id+"')\" title=\"Edit\"><i class=\"fa-solid fa-pen\"></i></button>"+
+          "<button class=\"icon-btn danger\" onclick=\"deleteInfCollab('"+inf.id+"')\" title=\"Delete\"><i class=\"fa-solid fa-trash\"></i></button>"+
+        "</div>"+
+      "</td>"+
     "</tr>";
   }).join("");
 
   mc.innerHTML=
-    "<div class=\"stats-grid-8\">"+
-    statCard("fa-solid fa-star","Total Collabs",total,"")+
-    statCard("fa-solid fa-indian-rupee-sign","Paid Collabs",paidCollabCount,"")+
-    statCard("fa-solid fa-gift","Gifted/Barter",giftedCount,"")+
-    statCard("fa-solid fa-circle-check","Published",published,"")+
-    statCard("fa-solid fa-box","Parcels Sent",parcelSent,"")+
-    statCard("fa-solid fa-rotate","Active Subs",activeSubs,"")+
-    statCard("fa-solid fa-film","Reels Done",doneReels+"/"+totalReels,reelsPct+"%")+
-    statCard("fa-solid fa-file-signature","Contracts",contracts,"")+
+    // ── KPI ROW ──
+    "<div class=\"dash-kpi-grid\" style=\"margin-bottom:18px;\">"+
+      statCard("fa-solid fa-star","Total Collabs",total,all.filter(function(x){return x.collabType==="paid";}).length+" paid · "+all.filter(function(x){return x.collabType!=="paid";}).length+" gifted/barter")+
+      statCard("fa-solid fa-indian-rupee-sign","Total Budget",fmtMoney(totalBudget),fmtMoney(totalPaidOut)+" paid out")+
+      statCard("fa-solid fa-coins","Avg Deal Size",fmtMoney(avgDeal),"paid collabs only")+
+      statCard("fa-solid fa-globe","Publish Rate",publishRate+"%",published+" of "+total+" published")+
+      statCard("fa-solid fa-film","Reels Done",doneReels+"/"+totalReels,(totalReels>0?Math.round(doneReels/totalReels*100):0)+"% complete")+
+      statCard("fa-solid fa-rotate","Active Subs",activeSubs,contracts+" contracts signed")+
     "</div>"+
 
-    // ── COST ANALYSIS CARD ──
+    // ── PIPELINE + BUDGET ROW ──
+    "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;\">"+
+
+      // Pipeline
+      "<div class=\"card\">"+
+        "<div class=\"card-header\"><i class=\"fa-solid fa-arrow-right\" style=\"color:var(--blue);font-size:15px;\"></i><span class=\"card-title\">Content Pipeline</span></div>"+
+        "<div class=\"card-body\">"+
+          "<div style=\"display:flex;align-items:stretch;gap:4px;margin-bottom:12px;\">"+
+            pipelineStep("Script ready",scriptReady,"#14532d","#dcfce7")+
+            "<div style=\"display:flex;align-items:center;color:var(--text-3);font-size:12px;\">›</div>"+
+            pipelineStep("In production",inProduction,"#1e40af","#dbeafe")+
+            "<div style=\"display:flex;align-items:center;color:var(--text-3);font-size:12px;\">›</div>"+
+            pipelineStep("Under review",underReview,"#92400e","#fef3c7")+
+            "<div style=\"display:flex;align-items:center;color:var(--text-3);font-size:12px;\">›</div>"+
+            pipelineStep("Scheduled",scheduled,"#5b21b6","#ede9fe")+
+            "<div style=\"display:flex;align-items:center;color:var(--text-3);font-size:12px;\">›</div>"+
+            pipelineStep("Published",published,"#065f46","#d1fae5")+
+          "</div>"+
+          (overduePayments+stuckReview+parcelNotSent>0?
+            "<div style=\"font-size:11px;color:var(--text-3);border-top:1px solid var(--border);padding-top:8px;\">"+
+              (overduePayments?"<span style=\"color:var(--red);margin-right:10px;\"><i class=\"fa-solid fa-triangle-exclamation\"></i> "+overduePayments+" overdue payment"+(overduePayments>1?"s":"")+"</span>":"")+
+              (stuckReview?"<span style=\"color:var(--amber);margin-right:10px;\"><i class=\"fa-solid fa-clock\"></i> "+stuckReview+" stuck in review</span>":"")+
+              (parcelNotSent?"<span style=\"color:var(--blue);\"><i class=\"fa-solid fa-box\"></i> "+parcelNotSent+" parcel"+(parcelNotSent>1?"s":"")+" not sent</span>":"")+
+            "</div>"
+          :"")+
+        "</div>"+
+      "</div>"+
+
+      // Budget donut
+      "<div class=\"card\">"+
+        "<div class=\"card-header\"><i class=\"fa-solid fa-wallet\" style=\"color:var(--green-700);font-size:15px;\"></i><span class=\"card-title\">Budget Breakdown</span></div>"+
+        "<div class=\"card-body\">"+
+          "<div style=\"display:flex;align-items:center;gap:20px;\">"+
+            donutSvg+
+            "<div style=\"flex:1;\">"+
+              "<div style=\"display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2);margin-bottom:6px;\"><span style=\"width:10px;height:10px;border-radius:2px;background:#3A7D35;display:inline-block;\"></span>Paid out — "+Math.round(paidPct*100)+"%</div>"+
+              "<div style=\"display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2);margin-bottom:6px;\"><span style=\"width:10px;height:10px;border-radius:2px;background:#f59e0b;display:inline-block;\"></span>Partial — "+Math.round(partialPct*100)+"%</div>"+
+              "<div style=\"display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2);\"><span style=\"width:10px;height:10px;border-radius:2px;background:#ef4444;display:inline-block;\"></span>Unpaid — "+Math.round(unpaidPct*100)+"%</div>"+
+            "</div>"+
+          "</div>"+
+          "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;\">"+
+            "<div style=\"background:var(--bg);border-radius:6px;padding:8px;\"><div style=\"font-size:11px;color:var(--text-3);\">Avg cost / reel</div><div style=\"font-size:15px;font-weight:600;\">"+fmtMoney(avgCostPerReel)+"</div></div>"+
+            "<div style=\"background:var(--bg);border-radius:6px;padding:8px;\"><div style=\"font-size:11px;color:var(--text-3);\">Gifted value</div><div style=\"font-size:15px;font-weight:600;\">"+fmtMoney(giftedVal)+"</div></div>"+
+          "</div>"+
+        "</div>"+
+      "</div>"+
+    "</div>"+
+
+    // ── PLATFORM + TIER ROW ──
+    "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;\">"+
+
+      // Platform bars
+      "<div class=\"card\">"+
+        "<div class=\"card-header\"><i class=\"fa-solid fa-mobile-screen\" style=\"color:var(--blue);font-size:15px;\"></i><span class=\"card-title\">Platform Performance</span></div>"+
+        "<div class=\"card-body\">"+(platBars||"<div style=\"font-size:13px;color:var(--text-3);\">No data yet</div>")+"</div>"+
+      "</div>"+
+
+      // Tier breakdown
+      "<div class=\"card\">"+
+        "<div class=\"card-header\"><i class=\"fa-solid fa-award\" style=\"color:var(--brand-orange);font-size:15px;\"></i><span class=\"card-title\">Tier Breakdown</span></div>"+
+        "<div class=\"card-body\">"+(tierBars||"<div style=\"font-size:13px;color:var(--text-3);\">No data yet</div>")+"</div>"+
+      "</div>"+
+    "</div>"+
+
+    // ── ALERTS ──
+    (overduePayments+stuckReview+parcelNotSent>0?
+      "<div class=\"card\" style=\"margin-bottom:18px;\">"+
+        "<div class=\"card-header\"><i class=\"fa-solid fa-triangle-exclamation\" style=\"color:var(--red);font-size:15px;\"></i><span class=\"card-title\">Needs Attention</span></div>"+
+        "<div class=\"card-body\"><div style=\"display:grid;grid-template-columns:repeat(3,1fr);gap:12px;\">"+
+          (overduePayments?"<div style=\"background:#fee2e2;border-radius:8px;padding:12px;\"><div style=\"font-size:22px;font-weight:700;color:#991b1b;\">"+overduePayments+"</div><div style=\"font-size:12px;color:#991b1b;margin-top:2px;\">Overdue payment"+(overduePayments>1?"s":"")+"</div><div style=\"font-size:11px;color:#b91c1c;margin-top:2px;\">&gt;30 days unpaid</div></div>":"")+
+          (stuckReview?"<div style=\"background:#fef3c7;border-radius:8px;padding:12px;\"><div style=\"font-size:22px;font-weight:700;color:#92400e;\">"+stuckReview+"</div><div style=\"font-size:12px;color:#92400e;margin-top:2px;\">Content under review</div><div style=\"font-size:11px;color:#b45309;margin-top:2px;\">Awaiting your approval</div></div>":"")+
+          (parcelNotSent?"<div style=\"background:#dbeafe;border-radius:8px;padding:12px;\"><div style=\"font-size:22px;font-weight:700;color:#1e40af;\">"+parcelNotSent+"</div><div style=\"font-size:12px;color:#1e40af;margin-top:2px;\">Parcel"+(parcelNotSent>1?"s":"")+" not sent</div><div style=\"font-size:11px;color:#1d4ed8;margin-top:2px;\">Product dispatch pending</div></div>":"")+
+        "</div></div>"+
+      "</div>"
+    :"")+
+
+    // ── LEADERBOARD ──
     "<div class=\"card\" style=\"margin-bottom:22px;\">"+
-      "<div class=\"card-header\">"+
-        "<i class=\"fa-solid fa-chart-column\" style=\"color:var(--brand-orange);font-size:16px;\"></i>"+
-        "<span class=\"card-title\">Cost Analysis</span>"+
-      "</div>"+
-      "<div class=\"card-body\">"+
-
-        // Financial KPIs
-        "<div class=\"dash-kpi-grid\" style=\"margin-bottom:20px;\">"+
-          "<div class=\"stat-card\">"+
-            "<div class=\"stat-icon\"><i class=\"fa-solid fa-wallet\" style=\"color:var(--text-3);\"></i></div>"+
-            "<div class=\"stat-label\">Total Budget</div>"+
-            "<div class=\"stat-value\" style=\"font-size:21px;\">"+fmtMoney(totalBudget)+"</div>"+
-            "<div class=\"stat-sub\">across "+total+" collab"+(total!==1?"s":"")+"</div>"+
-          "</div>"+
-          "<div class=\"stat-card\">"+
-            "<div class=\"stat-icon\"><i class=\"fa-solid fa-circle-check\" style=\"color:#14532d;\"></i></div>"+
-            "<div class=\"stat-label\">Paid Out</div>"+
-            "<div class=\"stat-value\" style=\"font-size:21px;color:#14532d;\">"+fmtMoney(totalPaidOut)+"</div>"+
-            "<div class=\"stat-sub\">"+paidPayCount+" fully paid &bull; "+partialPayCount+" partial</div>"+
-          "</div>"+
-          "<div class=\"stat-card\">"+
-            "<div class=\"stat-icon\"><i class=\"fa-solid fa-hourglass-half\" style=\"color:var(--red);\"></i></div>"+
-            "<div class=\"stat-label\">Pending</div>"+
-            "<div class=\"stat-value\" style=\"font-size:21px;color:var(--red);\">"+fmtMoney(totalPending)+"</div>"+
-            "<div class=\"stat-sub\">"+unpaidPayCount+" unpaid collab"+(unpaidPayCount!==1?"s":"")+"</div>"+
-          "</div>"+
-          "<div class=\"stat-card\">"+
-            "<div class=\"stat-icon\"><i class=\"fa-solid fa-coins\" style=\"color:var(--brand-orange);\"></i></div>"+
-            "<div class=\"stat-label\">Avg Deal Size</div>"+
-            "<div class=\"stat-value\" style=\"font-size:21px;color:var(--brand-orange);\">"+fmtMoney(avgDeal)+"</div>"+
-            "<div class=\"stat-sub\">paid collabs only</div>"+
-          "</div>"+
-        "</div>"+
-
-        // Budget utilization bar
-        (totalBudget>0?
-          "<div style=\"margin-bottom:22px;\">"+
-            "<div style=\"display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:7px;\">"+
-              "<span><i class=\"fa-solid fa-gauge-high\" style=\"margin-right:5px;color:var(--brand-orange);\"></i>Budget Utilization</span>"+
-              "<span style=\"color:"+(utilizationPct>=100?"#14532d":utilizationPct>=60?"var(--amber)":"var(--red)")+"\">"+utilizationPct+"% paid out</span>"+
-            "</div>"+
-            "<div class=\"progress-wrap\" style=\"height:10px;border-radius:6px;\">"+
-              "<div class=\"progress-bar"+(utilizationPct>=100?"":" orange")+"\" style=\"width:"+utilizationPct+"%;\"></div>"+
-            "</div>"+
-            "<div style=\"display:flex;justify-content:space-between;font-size:11px;color:var(--text-3);margin-top:5px;\">"+
-              "<span>"+fmtMoney(totalPaidOut)+" paid</span>"+
-              "<span>"+fmtMoney(totalPending)+" remaining</span>"+
-            "</div>"+
-          "</div>"
-        :"")+
-
-        // Breakdown tables: 3 columns
-        "<div class=\"cost-breakdown-grid\">"+
-
-          // By Tier
-          "<div>"+
-            "<div style=\"font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-3);margin-bottom:10px;\">"+
-              "<i class=\"fa-solid fa-layer-group\" style=\"margin-right:5px;\"></i>By Tier"+
-            "</div>"+
-            (tierRows
-              ? "<table class=\"data-table\"><thead><tr><th>Tier</th><th>#</th><th>Budget</th><th>Paid</th><th>Pending</th></tr></thead><tbody>"+tierRows+"</tbody></table>"
-              : "<div style=\"font-size:13px;color:var(--text-3);\">No data</div>")+
-          "</div>"+
-
-          // By Collab Type
-          "<div>"+
-            "<div style=\"font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-3);margin-bottom:10px;\">"+
-              "<i class=\"fa-solid fa-handshake\" style=\"margin-right:5px;\"></i>By Collab Type"+
-            "</div>"+
-            (ctypeRows
-              ? "<table class=\"data-table\"><thead><tr><th>Type</th><th>#</th><th>Budget</th><th>Paid</th><th>Pending</th></tr></thead><tbody>"+ctypeRows+"</tbody></table>"
-              : "<div style=\"font-size:13px;color:var(--text-3);\">No data</div>")+
-          "</div>"+
-
-          // By Platform
-          "<div>"+
-            "<div style=\"font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-3);margin-bottom:10px;\">"+
-              "<i class=\"fa-solid fa-globe\" style=\"margin-right:5px;\"></i>By Platform"+
-            "</div>"+
-            (platformRows
-              ? "<table class=\"data-table\"><thead><tr><th>Platform</th><th>#</th><th>Budget</th><th>Paid</th><th>Pending</th></tr></thead><tbody>"+platformRows+"</tbody></table>"
-              : "<div style=\"font-size:13px;color:var(--text-3);\">No data</div>")+
-          "</div>"+
-
-        "</div>"+
+      "<div class=\"card-header\"><i class=\"fa-solid fa-trophy\" style=\"color:var(--brand-orange);font-size:15px;\"></i><span class=\"card-title\">All Influencers — Performance Overview</span></div>"+
+      "<div style=\"overflow-x:auto;\">"+
+        "<table class=\"data-table\"><thead><tr>"+
+          "<th>Influencer</th><th>Platform</th><th>Tier</th><th style=\"text-align:right;\">Budget</th><th style=\"text-align:right;\">Followers</th><th>Reels Progress</th><th>Status</th><th></th>"+
+        "</tr></thead><tbody>"+
+        (lbRows||"<tr><td colspan=\"8\" style=\"text-align:center;padding:20px;color:var(--text-3);\">No influencers yet</td></tr>")+
+        "</tbody></table>"+
       "</div>"+
     "</div>"+
 
-    // ── INFLUENCER CARDS ──
-    "<div class=\"section-header\"><h2>Influencer Collabs</h2></div>"+
+    // ── FILTER BAR + CARDS ──
+    "<div class=\"section-header\"><h2>All Collabs</h2></div>"+
     "<div class=\"filter-bar\">"+
-    "<input id=\"searchInf\" placeholder=\"Search influencers...\" oninput=\"renderInfluencerCollabs()\"/>"+
-    "<select id=\"filterInfPlatform\" onchange=\"renderInfluencerCollabs()\">"+
-    "<option value=\"\">All Platforms</option><option>Instagram</option><option>YouTube</option><option>TikTok</option><option>Facebook</option><option>LinkedIn</option><option>Twitter/X</option>"+
-    "</select>"+
-    "<select id=\"filterInfTier\" onchange=\"renderInfluencerCollabs()\">"+
-    "<option value=\"\">All Tiers</option><option value=\"nano\">Nano</option><option value=\"micro\">Micro</option><option value=\"macro\">Macro</option><option value=\"mega\">Mega</option>"+
-    "</select></div>"+
+      "<input id=\"searchInf\" placeholder=\"Search influencers...\" value=\""+escHtml(qv)+"\" oninput=\"renderInfluencerCollabs()\"/>"+
+      "<select id=\"filterInfPlatform\" onchange=\"renderInfluencerCollabs()\">"+
+        "<option value=\"\">All Platforms</option><option"+(fpv==="Instagram"?" selected":"")+">Instagram</option><option"+(fpv==="YouTube"?" selected":"")+">YouTube</option><option"+(fpv==="TikTok"?" selected":"")+">TikTok</option><option"+(fpv==="Facebook"?" selected":"")+">Facebook</option><option"+(fpv==="LinkedIn"?" selected":"")+">LinkedIn</option><option"+(fpv==="Twitter/X"?" selected":"")+">Twitter/X</option>"+
+      "</select>"+
+      "<select id=\"filterInfTier\" onchange=\"renderInfluencerCollabs()\">"+
+        "<option value=\"\">All Tiers</option><option value=\"nano\""+(ftv==="nano"?" selected":"")+">Nano</option><option value=\"micro\""+(ftv==="micro"?" selected":"")+">Micro</option><option value=\"macro\""+(ftv==="macro"?" selected":"")+">Macro</option><option value=\"mega\""+(ftv==="mega"?" selected":"")+">Mega</option>"+
+      "</select>"+
+    "</div>"+
     "<div class=\"inf-grid\">"+(collabs.map(infCardHtml).join("")||emptyState("fa-solid fa-star","No influencer collabs","Add your first influencer collaboration"))+"</div>";
+}
+
+function pipelineStep(label,count,textColor,bgColor){
+  return "<div style=\"flex:1;text-align:center;padding:8px 4px;background:"+bgColor+";border-radius:8px;\">"+
+    "<div style=\"font-size:20px;font-weight:700;color:"+textColor+";\">"+count+"</div>"+
+    "<div style=\"font-size:10px;color:"+textColor+";margin-top:2px;\">"+label+"</div>"+
+  "</div>";
 }
 function infCardHtml(inf){
   var initial=(inf.influencerName||"?").charAt(0).toUpperCase();
