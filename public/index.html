@@ -150,7 +150,53 @@ a{text-decoration:none;color:inherit;}button{cursor:pointer;border:none;backgrou
 .checklist{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
 .check-item{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-2);}
 .check-item i{color:var(--green-700);font-size:14px;}
-@media(max-width:768px){.sidebar{width:0;overflow:hidden;}.content-grid,.inf-grid,.pipeline-grid{grid-template-columns:1fr;}.charts-row{grid-template-columns:1fr;}.form-row,.form-row.triple{grid-template-columns:1fr;}.cost-breakdown-grid{grid-template-columns:1fr!important;}}
+/* ── Mobile hamburger button ── */
+.mob-menu-btn{display:none;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,.12);color:#fff;font-size:16px;cursor:pointer;border:none;flex-shrink:0;}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:199;}
+@media(max-width:768px){
+  /* Show hamburger */
+  .mob-menu-btn{display:flex;}
+  /* Sidebar slides in over content */
+  .sidebar{position:fixed;left:0;top:0;height:100%;z-index:200;transform:translateX(-100%);transition:transform .22s;width:260px!important;overflow:hidden;}
+  .sidebar.mob-open{transform:translateX(0);}
+  .sidebar-overlay.mob-open{display:block;}
+  /* Main fills full width */
+  #app{flex-direction:column;}
+  .main{width:100%;}
+  /* Header compact */
+  .header{padding:0 12px;gap:8px;}
+  .header-title{font-size:15px;}
+  /* Hide text labels on small header buttons, keep icons */
+  .header .btn-ghost .btn-label{display:none;}
+  /* Content area less padding */
+  .content-area{padding:14px;}
+  /* Grids → single column */
+  .content-grid,.inf-grid,.pipeline-grid,.vendor-grid,.provider-grid{grid-template-columns:1fr!important;}
+  .charts-row{grid-template-columns:1fr!important;}
+  .form-row,.form-row.triple{grid-template-columns:1fr!important;}
+  .cost-breakdown-grid{grid-template-columns:1fr!important;}
+  .dash-kpi-grid{grid-template-columns:repeat(2,1fr)!important;}
+  .stats-grid,.stats-grid-8{grid-template-columns:repeat(2,1fr)!important;}
+  .pay-dash-grid{grid-template-columns:repeat(2,1fr)!important;}
+  /* Filter bar wraps */
+  .filter-bar{flex-wrap:wrap;}
+  .filter-bar input{min-width:0;width:100%;}
+  /* Section header wraps */
+  .section-header{flex-direction:column;align-items:flex-start;gap:8px;}
+  .section-header>div{width:100%;flex-wrap:wrap;}
+  /* Modals full screen on mobile */
+  .modal-overlay{padding:0;align-items:flex-end;}
+  .modal,.modal.modal-lg{max-width:100%!important;width:100%;max-height:92vh;border-radius:16px 16px 0 0;}
+  /* Social calendar — horizontal scroll */
+  .sc-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .sc-table{min-width:900px;}
+  /* Detail panel full width on mobile */
+  .sc-detail-panel{width:100%!important;}
+  /* Dash toolbar wraps */
+  .dash-toolbar{flex-direction:column;align-items:flex-start;}
+  /* Platform checkboxes in modal wrap */
+  #sc_plat_label_instagram,#sc_plat_label_blog,#sc_plat_label_linkedin,#sc_plat_label_youtube{flex:1;min-width:130px;justify-content:center;}
+}
 .cost-breakdown-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;}
 @media(max-width:1100px){.cost-breakdown-grid{grid-template-columns:1fr 1fr;}}
 .dash-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
@@ -309,6 +355,7 @@ body.dark .inf-video-form{background:var(--card);border-color:var(--border);}
 </head>
 <body>
 <header class="header">
+  <button class="mob-menu-btn" onclick="toggleMobSidebar()" title="Menu"><i class="fa-solid fa-bars"></i></button>
   <span id="headerTitle" class="header-title">Post Tracking</span>
   <span id="syncDot" class="sync-dot"></span>
   <button class="btn btn-ghost btn-sm" onclick="refreshData()"><i class="fa-solid fa-rotate"></i> Refresh</button>
@@ -324,8 +371,9 @@ body.dark .inf-video-form{background:var(--card);border-color:var(--border);}
   <button id="btnAdd" class="btn btn-primary btn-sm" onclick="openAddContent()"><i class="fa-solid fa-plus"></i> Add Post</button>
   <button class="btn btn-ghost btn-sm" onclick="doLogout()" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></button>
 </header>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobSidebar()"></div>
 <div id="app">
-<nav class="sidebar">
+<nav class="sidebar" id="sidebar">
   <div class="sidebar-header">
     <img src="/logo.jpg" alt="Truyerba" class="sidebar-logo"/>
   </div>
@@ -763,6 +811,7 @@ function setCatView(id){
   renderSidebar(); rerender();
 }
 function setView(view){
+  closeMobSidebar();
   currentView=view; currentCatId=null;
   var titles={
     dashboard:"Post Tracking",investors:"Investors",influencers:"Influencer Collabs",
@@ -2190,6 +2239,21 @@ async function saveInfVideos(){
 }
 
 // ── Dark Mode ──────────────────────────────────────────────────────────────
+function toggleMobSidebar(){
+  var sb=document.getElementById("sidebar");
+  var ov=document.getElementById("sidebarOverlay");
+  if(!sb||!ov) return;
+  var open=sb.classList.toggle("mob-open");
+  ov.classList.toggle("mob-open",open);
+  document.body.style.overflow=open?"hidden":"";
+}
+function closeMobSidebar(){
+  var sb=document.getElementById("sidebar");
+  var ov=document.getElementById("sidebarOverlay");
+  if(sb) sb.classList.remove("mob-open");
+  if(ov) ov.classList.remove("mob-open");
+  document.body.style.overflow="";
+}
 function toggleDarkMode(){
   var isDark=document.body.classList.toggle("dark");
   localStorage.setItem("darkMode",isDark?"1":"0");
@@ -3547,7 +3611,43 @@ function renderSocialCalendar(){
       "<span class=\"sc-legend-item\"><span class=\"sc-legend-dot\" style=\"background:#94a3b8;\"></span>Draft</span>"+
       "<span class=\"sc-legend-item\"><span class=\"sc-legend-dot\" style=\"background:#93c5fd;\"></span>Scheduled</span>"+
       "<span class=\"sc-legend-item\"><span class=\"sc-legend-dot\" style=\"background:#86efac;\"></span>Published</span>"+
-    "</div>";
+    "</div>"+
+    // All saved plans list
+    (function(){
+      if(!DB.contentPlans||!DB.contentPlans.length) return "<div style=\"color:var(--text-3);text-align:center;padding:24px;\">No content plans yet. Click <b>Add Content</b> to get started.</div>";
+      var rows=DB.contentPlans.map(function(p){
+        var platforms=SC_PLATFORMS.map(function(plat){
+          var ps=p[plat.key]||{};
+          var d=ps.scheduled||ps.published||"";
+          var col={draft:"#94a3b8",scheduled:"#3b82f6",published:"#22c55e"}[ps.status||"draft"]||"#94a3b8";
+          return "<span style=\"display:inline-flex;align-items:center;gap:4px;margin-right:8px;font-size:11px;\">"+
+            "<span style=\"width:8px;height:8px;border-radius:50%;background:"+col+";display:inline-block;\"></span>"+
+            "<b>"+plat.label+"</b>"+(d?" <span style='color:var(--text-3)'>"+d+"</span>":"<span style='color:#f59e0b;font-size:10px'> (no date)</span>")+
+          "</span>";
+        }).join("");
+        return "<tr style=\"border-bottom:1px solid var(--border);\">"+
+          "<td style=\"padding:10px 12px;font-weight:600;color:var(--text-1);\">"+escHtml(p.title)+"</td>"+
+          "<td style=\"padding:10px 12px;font-size:12px;color:var(--text-2);\">"+escHtml(p.contentType||"")+"</td>"+
+          "<td style=\"padding:10px 12px;\">"+platforms+"</td>"+
+          "<td style=\"padding:10px 12px;\">"+
+            "<button class=\"btn btn-outline btn-sm\" onclick=\"openEditPlan('"+p.id+"')\">Edit</button> "+
+            "<button class=\"btn btn-outline btn-sm\" style=\"color:#ef4444;border-color:#fca5a5;\" onclick=\"deletePlan('"+p.id+"')\">Delete</button>"+
+          "</td>"+
+        "</tr>";
+      }).join("");
+      return "<div style=\"margin-top:24px;\">"+
+        "<div style=\"font-size:14px;font-weight:700;color:var(--text-1);margin-bottom:10px;\">All Saved Plans ("+DB.contentPlans.length+")</div>"+
+        "<table style=\"width:100%;border-collapse:collapse;background:var(--bg-card);border-radius:10px;overflow:hidden;box-shadow:var(--shadow-sm);\">"+
+          "<thead><tr style=\"background:var(--bg-hover);\">"+
+            "<th style=\"padding:9px 12px;text-align:left;font-size:12px;color:var(--text-2);\">Title</th>"+
+            "<th style=\"padding:9px 12px;text-align:left;font-size:12px;color:var(--text-2);\">Type</th>"+
+            "<th style=\"padding:9px 12px;text-align:left;font-size:12px;color:var(--text-2);\">Platforms &amp; Dates</th>"+
+            "<th style=\"padding:9px 12px;text-align:left;font-size:12px;color:var(--text-2);\">Actions</th>"+
+          "</tr></thead>"+
+          "<tbody>"+rows+"</tbody>"+
+        "</table>"+
+      "</div>";
+    })();
 }
 
 function prevScMonth(){ scMonth--; if(scMonth<0){scMonth=11;scYear--;} renderSocialCalendar(); }
@@ -3612,21 +3712,48 @@ function populateLinkedPostSelect(selectedId){
       return "<option value=\""+c.id+"\""+(c.id===selectedId?" selected":"")+">"+escHtml(c.title)+"</option>";
     }).join("");
 }
+function scPlatToggle(key){
+  var cb=document.getElementById("sc_plat_"+key);
+  var lbl=document.getElementById("sc_plat_label_"+key);
+  var colors={instagram:"#e1306c",blog:"#16a34a",linkedin:"#0077b5",youtube:"#ff0000"};
+  if(cb&&cb.checked){
+    lbl.style.borderColor=colors[key]||"var(--green-600)";
+    lbl.style.background=colors[key]+"18";
+    showScPlatformTab(key);
+  } else {
+    lbl.style.borderColor="var(--border)";
+    lbl.style.background="";
+    // switch tab to first checked platform
+    var first=SC_PLATFORMS.find(function(p){ var c=document.getElementById("sc_plat_"+p.key); return c&&c.checked; });
+    if(first) showScPlatformTab(first.key);
+  }
+  document.getElementById("sc_plat_hint").style.display=
+    SC_PLATFORMS.some(function(p){ var c=document.getElementById("sc_plat_"+p.key); return c&&c.checked; }) ? "none" : "";
+}
+
+function scSetPlatChecked(key, checked){
+  var cb=document.getElementById("sc_plat_"+key);
+  var lbl=document.getElementById("sc_plat_label_"+key);
+  var colors={instagram:"#e1306c",blog:"#16a34a",linkedin:"#0077b5",youtube:"#ff0000"};
+  if(!cb||!lbl) return;
+  cb.checked=checked;
+  if(checked){ lbl.style.borderColor=colors[key]||"var(--green-600)"; lbl.style.background=colors[key]+"18"; }
+  else { lbl.style.borderColor="var(--border)"; lbl.style.background=""; }
+}
+
 function openAddPlan(presetPlatform, presetDate){
   editingPlanId=null;
   ["sc_title","sc_desc","sc_creator","sc_linkedPost"].forEach(function(id){setVal(id,"");});
   setVal("sc_type","Reel");
   SC_PLATFORMS.forEach(function(plat){
+    scSetPlatChecked(plat.key, plat.key===presetPlatform);
     setVal("sc_"+plat.key+"_status","draft");
     setVal("sc_"+plat.key+"_scheduled", (plat.key===presetPlatform&&presetDate)?presetDate:"");
     setVal("sc_"+plat.key+"_published","");
     setVal("sc_"+plat.key+"_link","");
     setVal("sc_"+plat.key+"_notes","");
   });
-  // activate first platform tab
-  document.querySelectorAll(".sc-tab").forEach(function(t){t.classList.remove("active");});
-  var firstTab=document.querySelector(".sc-tab");
-  if(firstTab) firstTab.classList.add("active");
+  document.getElementById("sc_plat_hint").style.display=presetPlatform?"none":"";
   showScPlatformTab(presetPlatform||"instagram");
   populateLinkedPostSelect(null);
   document.getElementById("scModalTitle").textContent="Add Content Plan";
@@ -3639,15 +3766,20 @@ function openEditPlan(id){
   setVal("sc_title",plan.title); setVal("sc_desc",plan.description||"");
   setVal("sc_creator",plan.creator||""); setVal("sc_type",plan.contentType||"Reel");
   setVal("sc_linkedPost",plan.linkedPostId||"");
+  var firstChecked=null;
   SC_PLATFORMS.forEach(function(plat){
     var ps=plan[plat.key]||{};
+    var hasData=ps.scheduled||ps.published||ps.link||(ps.status&&ps.status!=="draft");
+    scSetPlatChecked(plat.key, !!hasData);
+    if(hasData&&!firstChecked) firstChecked=plat.key;
     setVal("sc_"+plat.key+"_status",ps.status||"draft");
     setVal("sc_"+plat.key+"_scheduled",ps.scheduled||"");
     setVal("sc_"+plat.key+"_published",ps.published||"");
     setVal("sc_"+plat.key+"_link",ps.link||"");
     setVal("sc_"+plat.key+"_notes",ps.notes||"");
   });
-  showScPlatformTab("instagram");
+  document.getElementById("sc_plat_hint").style.display="none";
+  showScPlatformTab(firstChecked||"instagram");
   populateLinkedPostSelect(plan.linkedPostId||null);
   document.getElementById("scModalTitle").textContent="Edit Content Plan";
   openModal("scModal");
@@ -3664,6 +3796,8 @@ function showScPlatformTab(key){
 
 async function savePlan(){
   var title=gv("sc_title"); if(!title){toast("Title is required","error");return;}
+  var checkedPlats=SC_PLATFORMS.filter(function(p){ var c=document.getElementById("sc_plat_"+p.key); return c&&c.checked; });
+  if(!checkedPlats.length){ document.getElementById("sc_plat_hint").style.display=""; toast("Select at least one platform","error"); return; }
   var plan={
     id:editingPlanId||uid(), title:title,
     contentType:gv("sc_type")||"Other",
@@ -3672,17 +3806,20 @@ async function savePlan(){
     linkedPostId:gv("sc_linkedPost")||null,
   };
   SC_PLATFORMS.forEach(function(plat){
+    var checked=checkedPlats.some(function(p){return p.key===plat.key;});
     plan[plat.key]={
-      status:gv("sc_"+plat.key+"_status")||"draft",
-      scheduled:gv("sc_"+plat.key+"_scheduled")||null,
-      published:gv("sc_"+plat.key+"_published")||null,
-      link:gv("sc_"+plat.key+"_link")||null,
-      notes:gv("sc_"+plat.key+"_notes")||null,
+      status:checked?(gv("sc_"+plat.key+"_status")||"draft"):null,
+      scheduled:checked?(gv("sc_"+plat.key+"_scheduled")||null):null,
+      published:checked?(gv("sc_"+plat.key+"_published")||null):null,
+      link:checked?(gv("sc_"+plat.key+"_link")||null):null,
+      notes:checked?(gv("sc_"+plat.key+"_notes")||null):null,
     };
   });
+  // Check if any platform has a date (needed to appear on calendar grid)
+  var hasDate=SC_PLATFORMS.some(function(plat){ return plan[plat.key].scheduled||plan[plat.key].published; });
   try{
     if(editingPlanId){ await api("PUT","/api/content-plans/"+editingPlanId,plan); toast("Content plan updated"); }
-    else { await api("POST","/api/content-plans",plan); toast("Content plan added"); }
+    else { await api("POST","/api/content-plans",plan); toast(hasDate?"Content plan added":"Plan saved — set a Scheduled Date on a platform tab to show it on the calendar"); }
     closeModal("scModal");
     await refreshData();
     renderSocialCalendar();
@@ -4232,6 +4369,31 @@ document.addEventListener("DOMContentLoaded", async function(){
       <button class="modal-close" onclick="closeModal('scModal')"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="modal-body">
+      <!-- Platform selector -->
+      <div class="form-row single" style="margin-bottom:4px;">
+        <div class="form-group">
+          <label>Platform(s) *</label>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;transition:all .15s;" id="sc_plat_label_instagram">
+              <input type="checkbox" id="sc_plat_instagram" value="instagram" onchange="scPlatToggle('instagram')" style="accent-color:#e1306c;width:15px;height:15px;">
+              <i class="fa-brands fa-instagram" style="color:#e1306c;"></i> Instagram
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;transition:all .15s;" id="sc_plat_label_blog">
+              <input type="checkbox" id="sc_plat_blog" value="blog" onchange="scPlatToggle('blog')" style="accent-color:#16a34a;width:15px;height:15px;">
+              <i class="fa-solid fa-blog" style="color:#16a34a;"></i> Blog
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;transition:all .15s;" id="sc_plat_label_linkedin">
+              <input type="checkbox" id="sc_plat_linkedin" value="linkedin" onchange="scPlatToggle('linkedin')" style="accent-color:#0077b5;width:15px;height:15px;">
+              <i class="fa-brands fa-linkedin" style="color:#0077b5;"></i> LinkedIn
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;transition:all .15s;" id="sc_plat_label_youtube">
+              <input type="checkbox" id="sc_plat_youtube" value="youtube" onchange="scPlatToggle('youtube')" style="accent-color:#ff0000;width:15px;height:15px;">
+              <i class="fa-brands fa-youtube" style="color:#ff0000;"></i> YouTube
+            </label>
+          </div>
+          <div id="sc_plat_hint" style="font-size:11px;color:#f59e0b;margin-top:5px;display:none;">Select at least one platform</div>
+        </div>
+      </div>
       <div class="form-row">
         <div class="form-group"><label>Title *</label><input id="sc_title" placeholder="e.g. Summer Campaign Reel"/></div>
         <div class="form-group"><label>Content Type</label>
