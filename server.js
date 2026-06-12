@@ -1,7 +1,13 @@
 const express = require('express');
 const path    = require('path');
 const crypto  = require('crypto');
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// Return DATE, TIMESTAMP, TIMESTAMPTZ columns as plain strings (no JS Date conversion)
+// This prevents timezone-shift bugs where 2026-06-14 becomes 2026-06-13 in UTC
+types.setTypeParser(1082, val => val);   // DATE
+types.setTypeParser(1114, val => val);   // TIMESTAMP
+types.setTypeParser(1184, val => val);   // TIMESTAMPTZ
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -582,7 +588,7 @@ app.delete('/api/influencer-collabs/:id', async (req, res) => {
 });
 
 // ── API: Content Plans ────────────────────────────────────────────────────────
-function fmtDate(d) { if (!d) return null; if (d instanceof Date) return d.toISOString().slice(0, 10); return String(d).slice(0, 10); }
+function fmtDate(d) { return d ? String(d).slice(0, 10) : null; }
 function mapPlan(r) {
   return {
     id: r.id, title: r.title, contentType: r.content_type,
