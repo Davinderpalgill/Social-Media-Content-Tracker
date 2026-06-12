@@ -582,7 +582,7 @@ app.delete('/api/influencer-collabs/:id', async (req, res) => {
 });
 
 // ── API: Content Plans ────────────────────────────────────────────────────────
-function fmtDate(d) { return d ? String(d).slice(0, 10) : null; }
+function fmtDate(d) { if (!d) return null; if (d instanceof Date) return d.toISOString().slice(0, 10); return String(d).slice(0, 10); }
 function mapPlan(r) {
   return {
     id: r.id, title: r.title, contentType: r.content_type,
