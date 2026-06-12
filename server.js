@@ -582,14 +582,15 @@ app.delete('/api/influencer-collabs/:id', async (req, res) => {
 });
 
 // ── API: Content Plans ────────────────────────────────────────────────────────
+function fmtDate(d) { return d ? String(d).slice(0, 10) : null; }
 function mapPlan(r) {
   return {
     id: r.id, title: r.title, contentType: r.content_type,
     description: r.description, creator: r.creator, linkedPostId: r.linked_post_id,
-    instagram: { status: r.ig_status, scheduled: r.ig_scheduled, published: r.ig_published, link: r.ig_link, notes: r.ig_notes },
-    blog:      { status: r.blog_status, scheduled: r.blog_scheduled, published: r.blog_published, link: r.blog_link, notes: r.blog_notes },
-    linkedin:  { status: r.li_status, scheduled: r.li_scheduled, published: r.li_published, link: r.li_link, notes: r.li_notes },
-    youtube:   { status: r.yt_status, scheduled: r.yt_scheduled, published: r.yt_published, link: r.yt_link, notes: r.yt_notes },
+    instagram: { status: r.ig_status, scheduled: fmtDate(r.ig_scheduled), published: fmtDate(r.ig_published), link: r.ig_link, notes: r.ig_notes },
+    blog:      { status: r.blog_status, scheduled: fmtDate(r.blog_scheduled), published: fmtDate(r.blog_published), link: r.blog_link, notes: r.blog_notes },
+    linkedin:  { status: r.li_status, scheduled: fmtDate(r.li_scheduled), published: fmtDate(r.li_published), link: r.li_link, notes: r.li_notes },
+    youtube:   { status: r.yt_status, scheduled: fmtDate(r.yt_scheduled), published: fmtDate(r.yt_published), link: r.yt_link, notes: r.yt_notes },
     createdAt: r.created_at, updatedAt: r.updated_at,
   };
 }
