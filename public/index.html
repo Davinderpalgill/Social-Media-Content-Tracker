@@ -691,6 +691,7 @@ var DB = { categories: [], contents: [], investors: [], influencerCollabs: [], c
 var calMonth = new Date().getMonth(), calYear = new Date().getFullYear();
 var scMonth = new Date().getMonth(), scYear = new Date().getFullYear();
 var editingPlanId = null, scDetailPlan = null;
+var scFilterPlatform="all", scFilterStatus="all", scFilterDateFrom="", scFilterDateTo="", scFilterSearch="";
 var growthChart = null;
 var monthlyChart=null, donutChart=null;
 var currentView = "dashboard", currentCatId = null;
@@ -3612,42 +3613,117 @@ function renderSocialCalendar(){
       "<span class=\"sc-legend-item\"><span class=\"sc-legend-dot\" style=\"background:#93c5fd;\"></span>Scheduled</span>"+
       "<span class=\"sc-legend-item\"><span class=\"sc-legend-dot\" style=\"background:#86efac;\"></span>Published</span>"+
     "</div>"+
-    // All saved plans list
-    (function(){
-      if(!DB.contentPlans||!DB.contentPlans.length) return "<div style=\"color:var(--text-3);text-align:center;padding:24px;\">No content plans yet. Click <b>Add Content</b> to get started.</div>";
-      var rows=DB.contentPlans.map(function(p){
-        var platforms=SC_PLATFORMS.map(function(plat){
-          var ps=p[plat.key]||{};
-          var d=ps.scheduled||ps.published||"";
-          var col={draft:"#94a3b8",scheduled:"#3b82f6",published:"#22c55e"}[ps.status||"draft"]||"#94a3b8";
-          return "<span style=\"display:inline-flex;align-items:center;gap:4px;margin-right:8px;font-size:11px;\">"+
-            "<span style=\"width:8px;height:8px;border-radius:50%;background:"+col+";display:inline-block;\"></span>"+
-            "<b>"+plat.label+"</b>"+(d?" <span style='color:var(--text-3)'>"+d+"</span>":"<span style='color:#f59e0b;font-size:10px'> (no date)</span>")+
-          "</span>";
-        }).join("");
-        return "<tr style=\"border-bottom:1px solid var(--border);\">"+
-          "<td style=\"padding:10px 12px;font-weight:600;color:var(--text-1);\">"+escHtml(p.title)+"</td>"+
-          "<td style=\"padding:10px 12px;font-size:12px;color:var(--text-2);\">"+escHtml(p.contentType||"")+"</td>"+
-          "<td style=\"padding:10px 12px;\">"+platforms+"</td>"+
-          "<td style=\"padding:10px 12px;\">"+
-            "<button class=\"btn btn-outline btn-sm\" onclick=\"openEditPlan('"+p.id+"')\">Edit</button> "+
-            "<button class=\"btn btn-outline btn-sm\" style=\"color:#ef4444;border-color:#fca5a5;\" onclick=\"deletePlan('"+p.id+"')\">Delete</button>"+
-          "</td>"+
-        "</tr>";
-      }).join("");
-      return "<div style=\"margin-top:24px;\">"+
-        "<div style=\"font-size:14px;font-weight:700;color:var(--text-1);margin-bottom:10px;\">All Saved Plans ("+DB.contentPlans.length+")</div>"+
-        "<table style=\"width:100%;border-collapse:collapse;background:var(--bg-card);border-radius:10px;overflow:hidden;box-shadow:var(--shadow-sm);\">"+
-          "<thead><tr style=\"background:var(--bg-hover);\">"+
-            "<th style=\"padding:9px 12px;text-align:left;font-size:12px;color:var(--text-2);\">Title</th>"+
-            "<th style=\"padding:9px 12px;text-align:left;font-size:12px;color:var(--text-2);\">Type</th>"+
-            "<th style=\"padding:9px 12px;text-align:left;font-size:12px;color:var(--text-2);\">Platforms &amp; Dates</th>"+
-            "<th style=\"padding:9px 12px;text-align:left;font-size:12px;color:var(--text-2);\">Actions</th>"+
+    "<div id=\"scPlansList\" style=\"margin-top:24px;\"></div>";
+  renderScPlansList();
+}
+
+function renderScPlansList(){
+  var el=document.getElementById("scPlansList"); if(!el) return;
+  var plans=DB.contentPlans||[];
+
+  // apply filters
+  var filtered=plans.filter(function(p){
+    // search
+    if(scFilterSearch && p.title.toLowerCase().indexOf(scFilterSearch.toLowerCase())<0) return false;
+    // platform filter — plan must have that platform with non-null status
+    if(scFilterPlatform!=="all"){
+      var ps=p[scFilterPlatform]||{};
+      if(!ps.status||ps.status==="null") return false;
+    }
+    // status filter
+    if(scFilterStatus!=="all"){
+      var match=false;
+      SC_PLATFORMS.forEach(function(plat){
+        var ps=p[plat.key]||{};
+        if(ps.status===scFilterStatus) match=true;
+      });
+      if(!match) return false;
+    }
+    // date range
+    if(scFilterDateFrom||scFilterDateTo){
+      var anyDate=false;
+      SC_PLATFORMS.forEach(function(plat){
+        var ps=p[plat.key]||{};
+        var d=ps.scheduled||ps.published||"";
+        if(!d) return;
+        if(scFilterDateFrom&&d<scFilterDateFrom) return;
+        if(scFilterDateTo&&d>scFilterDateTo) return;
+        anyDate=true;
+      });
+      if(!anyDate) return false;
+    }
+    return true;
+  });
+
+  var statusColors={draft:"#94a3b8",scheduled:"#3b82f6",published:"#22c55e"};
+  var statusBg={draft:"#f1f5f9",scheduled:"#dbeafe",published:"#dcfce7"};
+  var statusText={draft:"#475569",scheduled:"#1e40af",published:"#14532d"};
+
+  var rows=filtered.map(function(p,i){
+    var platCells=SC_PLATFORMS.map(function(plat){
+      var ps=p[plat.key]||{};
+      if(!ps.status||ps.status==="null") return "<td style=\"padding:10px 8px;border-right:1px solid var(--border);font-size:11px;color:#cbd5e1;text-align:center;\">—</td>";
+      var d=ps.scheduled||ps.published||"";
+      var st=ps.status||"draft";
+      return "<td style=\"padding:10px 8px;border-right:1px solid var(--border);text-align:center;\">"+
+        "<span style=\"display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;background:"+statusBg[st]+";color:"+statusText[st]+";\">"+st+"</span>"+
+        (d?"<div style='font-size:10px;color:var(--text-3);margin-top:3px;'>"+d+"</div>":"<div style='font-size:10px;color:#f59e0b;margin-top:3px;'>no date</div>")+
+      "</td>";
+    }).join("");
+    var bg=i%2===0?"":"background:var(--green-50);";
+    return "<tr style=\"border-bottom:1px solid var(--border);"+bg+"transition:background .1s;\" onmouseover=\"this.style.background='var(--green-100)'\" onmouseout=\"this.style.background='"+(i%2===0?"":"var(--green-50)")+"'\">"+
+      "<td style=\"padding:10px 12px;border-right:1px solid var(--border);font-weight:600;font-size:13px;color:var(--text);\">"+escHtml(p.title)+"</td>"+
+      "<td style=\"padding:10px 12px;border-right:1px solid var(--border);font-size:12px;color:var(--text-2);\">"+escHtml(p.contentType||"")+"</td>"+
+      platCells+
+      "<td style=\"padding:10px 12px;text-align:center;\">"+
+        "<button title=\"View Details\" onclick=\"openScDetail('"+p.id+"')\" style=\"width:30px;height:30px;border-radius:6px;border:1.5px solid var(--border);background:#fff;cursor:pointer;font-size:13px;color:var(--green-700);margin-right:4px;\"><i class='fa-solid fa-eye'></i></button>"+
+        "<button title=\"Edit\" onclick=\"openEditPlan('"+p.id+"')\" style=\"width:30px;height:30px;border-radius:6px;border:1.5px solid var(--border);background:#fff;cursor:pointer;font-size:13px;color:var(--text-2);margin-right:4px;\"><i class='fa-solid fa-pen'></i></button>"+
+        "<button title=\"Delete\" onclick=\"deletePlan('"+p.id+"')\" style=\"width:30px;height:30px;border-radius:6px;border:1.5px solid #fca5a5;background:#fff;cursor:pointer;font-size:13px;color:#ef4444;\"><i class='fa-solid fa-trash'></i></button>"+
+      "</td>"+
+    "</tr>";
+  }).join("");
+
+  el.innerHTML=
+    "<div style=\"background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;\">"+
+      // header + filters
+      "<div style=\"padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;\">"+
+        "<span style=\"font-size:14px;font-weight:700;color:var(--text);\">All Content Plans <span style='font-size:12px;font-weight:500;color:var(--text-3);'>("+filtered.length+" of "+plans.length+")</span></span>"+
+        "<div style=\"display:flex;align-items:center;gap:8px;flex-wrap:wrap;\">"+
+          "<input placeholder=\"Search...\" value=\""+escHtml(scFilterSearch)+"\" oninput=\"scFilterSearch=this.value;renderScPlansList()\" style=\"padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;width:150px;outline:none;\"/>"+
+          "<select onchange=\"scFilterPlatform=this.value;renderScPlansList()\" style=\"padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;background:#fff;outline:none;\">"+
+            "<option value='all'"+(scFilterPlatform==="all"?" selected":"")+">All Platforms</option>"+
+            SC_PLATFORMS.map(function(pl){return "<option value='"+pl.key+"'"+(scFilterPlatform===pl.key?" selected":"")+">"+pl.label+"</option>";}).join("")+
+          "</select>"+
+          "<select onchange=\"scFilterStatus=this.value;renderScPlansList()\" style=\"padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;background:#fff;outline:none;\">"+
+            "<option value='all'"+(scFilterStatus==="all"?" selected":"")+">All Status</option>"+
+            "<option value='draft'"+(scFilterStatus==="draft"?" selected":"")+">Draft</option>"+
+            "<option value='scheduled'"+(scFilterStatus==="scheduled"?" selected":"")+">Scheduled</option>"+
+            "<option value='published'"+(scFilterStatus==="published"?" selected":"")+">Published</option>"+
+          "</select>"+
+          "<input type='date' title='From date' value='"+scFilterDateFrom+"' onchange=\"scFilterDateFrom=this.value;renderScPlansList()\" style=\"padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;outline:none;\"/>"+
+          "<input type='date' title='To date' value='"+scFilterDateTo+"' onchange=\"scFilterDateTo=this.value;renderScPlansList()\" style=\"padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;outline:none;\"/>"+
+          (scFilterPlatform!=="all"||scFilterStatus!=="all"||scFilterDateFrom||scFilterDateTo||scFilterSearch?
+            "<button onclick=\"scFilterPlatform='all';scFilterStatus='all';scFilterDateFrom='';scFilterDateTo='';scFilterSearch='';renderScPlansList()\" style=\"padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;background:#fff;cursor:pointer;color:var(--text-2);\">Clear</button>":"")+
+        "</div>"+
+      "</div>"+
+      // table
+      (filtered.length===0?
+        "<div style='padding:40px;text-align:center;color:var(--text-3);font-size:13px;'>No plans match the current filters.</div>":
+        "<div style='overflow-x:auto;'>"+
+        "<table style=\"width:100%;border-collapse:collapse;min-width:700px;\">"+
+          "<thead><tr style=\"background:var(--green-50);border-bottom:2px solid var(--border);\">"+
+            "<th style=\"padding:10px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);border-right:1px solid var(--border);\">Title</th>"+
+            "<th style=\"padding:10px 12px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);border-right:1px solid var(--border);\">Type</th>"+
+            SC_PLATFORMS.map(function(pl){
+              return "<th style=\"padding:10px 8px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:"+pl.color+";border-right:1px solid var(--border);min-width:100px;\"><i class='"+pl.icon+"' style='margin-right:4px;'></i>"+pl.label+"</th>";
+            }).join("")+
+            "<th style=\"padding:10px 12px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3);\">Actions</th>"+
           "</tr></thead>"+
           "<tbody>"+rows+"</tbody>"+
         "</table>"+
-      "</div>";
-    })();
+        "</div>"
+      )+
+    "</div>";
 }
 
 function prevScMonth(){ scMonth--; if(scMonth<0){scMonth=11;scYear--;} renderSocialCalendar(); }
